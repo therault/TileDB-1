@@ -212,7 +212,7 @@ class StorageManager {
       int mode, 
       const void* subarray,
       const char** attributes,
-      int attribute_num) const;
+      int attribute_num);
 
   /** 
    * Finalizes an array, properly freeing the memory space.
@@ -220,7 +220,7 @@ class StorageManager {
    * @param array The array to be finalized.
    * @return TILEDB_SM_OK on success, and TILEDB_SM_ERR on error.
    */
-  int array_finalize(Array* array) const;
+  int array_finalize(Array* array);
 
   /**
    * Initializes an array iterator for reading cells, potentially constraining 
@@ -460,6 +460,14 @@ class StorageManager {
   int array_clear(const std::string& array) const;
 
   /**
+   * Closes an array, potentially deleting its array schema and book-keeping.
+   *
+   * @param array The array name.
+   * @return TILEDB_SM_OK for success and TILEDB_SM_ERR for error.
+   */
+  int array_close(const std::string& array);
+
+  /**
    * Deletes a TileDB array entirely.
    *
    * @param array The array to be deleted.
@@ -477,6 +485,17 @@ class StorageManager {
   int array_move(
        const std::string& old_array,
        const std::string& new_array) const;
+
+  /**
+   * Opens an array. This creates or updates an OpenArray entry for this array,
+   * and loads the array schema and book-keeping if it is the first time this
+   * array is being initialized.
+   *
+   * @param array The array name.
+   * @param mode The mode in which the array is being initialized.
+   * @return TILEDB_SM_OK for success and TILEDB_SM_ERR for error.
+   */
+  int array_open(const std::string& array, int mode);
 
   /** 
    * It sets the TileDB configuration parameters from a file.

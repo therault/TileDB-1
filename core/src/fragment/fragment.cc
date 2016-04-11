@@ -187,7 +187,7 @@ int Fragment::init(
                 fragment_name_ + "/" + TILEDB_COORDS + TILEDB_FILE_SUFFIX);
   }
 
-  // Initialize book-keeping and write state
+  // Initialize book-keeping and read/write state
   book_keeping_ = new BookKeeping(this);
   if(mode == TILEDB_ARRAY_WRITE || 
      mode == TILEDB_ARRAY_WRITE_UNSORTED) {

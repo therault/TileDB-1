@@ -396,7 +396,11 @@ int StorageManager::array_init(
     int mode,
     const void* subarray,
     const char** attributes,
-    int attribute_num)  const {
+    int attribute_num)  {
+  // Open the array
+  if(array_open(array_dir, mode) != TILEDB_SM_OK)
+    return TILEDB_SM_ERR;
+
   // Load array schema
   ArraySchema* array_schema;
   if(array_load_schema(array_dir, array_schema) != TILEDB_SM_OK)
@@ -408,26 +412,30 @@ int StorageManager::array_init(
      TILEDB_AR_OK) {
     delete array;
     array = NULL;
+    array_close(array_dir);
     return TILEDB_SM_ERR;
   } else {
     return TILEDB_SM_OK;
   }
 }
 
-int StorageManager::array_finalize(Array* array) const {
+int StorageManager::array_finalize(Array* array) {
   // If the array is NULL, do nothing
   if(array == NULL)
     return TILEDB_SM_OK;
 
-  // Finalize array
-  int rc = array->finalize();
+  // Close and finalize the array
+  int rc_close = array_close(array->array_schema()->array_name());
+  int rc_finalize = array->finalize();
+
+  // Clean up
   delete array;
 
   // Return
-  if(rc == TILEDB_AR_OK)
-    return TILEDB_SM_OK;
-  else
+  if(rc_close != TILEDB_SM_OK || rc_finalize != TILEDB_AR_OK)
     return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
 }
 
 int StorageManager::array_iterator_init(
@@ -924,6 +932,10 @@ int StorageManager::array_clear(
   return TILEDB_SM_OK;
 }
 
+int StorageManager::array_close(const std::string& array) {
+  // TODO
+}
+
 int StorageManager::array_delete(
     const std::string& array) const {
   // Clear the array
@@ -977,6 +989,10 @@ int StorageManager::array_move(
 
   // Success
   return TILEDB_SM_OK;
+}
+
+int StorageManager::array_open(const std::string& array, int mode) {
+  // TODO
 }
 
 int StorageManager::config_set(const char* config_filename) {
