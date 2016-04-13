@@ -68,8 +68,6 @@ Metadata::Metadata() {
 }
 
 Metadata::~Metadata() {
-  if(array_ != NULL)
-    delete array_;
 }
 
 
@@ -100,11 +98,12 @@ int Metadata::read(const char* key, void** buffers, size_t* buffer_sizes) {
 
   // Compute subarray for the read
   int subarray[8];
-  int coords[4];
+  unsigned int coords[4];
   MD5((const unsigned char*) key, strlen(key)+1, (unsigned char*) coords);
+
   for(int i=0; i<4; ++i) {
-    subarray[2*i] = coords[i];
-    subarray[2*i+1] = coords[i];
+    subarray[2*i] = int(coords[i]);
+    subarray[2*i+1] = int(coords[i]);
   } 
 
   // Re-init sub array
@@ -146,6 +145,8 @@ int Metadata::finalize() {
 
 int Metadata::init(
     const ArraySchema* array_schema,
+    const std::vector<std::string>& fragment_names,
+    const std::vector<BookKeeping*>& book_keeping,
     int mode,
     const char** attributes,
     int attribute_num) {
@@ -165,9 +166,7 @@ int Metadata::init(
   char** array_attributes;
   int array_attribute_num;
   if(attributes == NULL) {
-    array_attribute_num =  
-        (mode == TILEDB_METADATA_WRITE) ? array_schema->attribute_num() + 1 
-                                        : array_schema->attribute_num();
+    array_attribute_num = array_schema->attribute_num() + 1;
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<array_attribute_num; ++i) {
       const char* attribute = array_schema->attribute(i).c_str();
@@ -177,7 +176,7 @@ int Metadata::init(
     } 
   } else {
     array_attribute_num = 
-        (mode == TILEDB_METADATA_WRITE) ? attribute_num + 1 
+        (mode == TILEDB_METADATA_WRITE) ? attribute_num + 1
                                         : attribute_num;
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<attribute_num; ++i) {
@@ -196,6 +195,8 @@ int Metadata::init(
   array_ = new Array();
   int rc = array_->init(
               array_schema, 
+              fragment_names,
+              book_keeping,
               array_mode, 
               (const char**) array_attributes, 
               array_attribute_num, 
@@ -216,14 +217,14 @@ int Metadata::init(
 int Metadata::reset_attributes(
     const char** attributes,
     int attribute_num) {
-  // Set attributes
+  // For easy reference
   const ArraySchema* array_schema = array_->array_schema();
+
+  // Set attributes
   char** array_attributes;
   int array_attribute_num;
   if(attributes == NULL) {
-    array_attribute_num =  
-        (mode_ == TILEDB_METADATA_WRITE) ? array_schema->attribute_num() + 1 
-                                        : array_schema->attribute_num();
+    array_attribute_num = array_schema->attribute_num() + 1;
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<array_attribute_num; ++i) {
       const char* attribute = array_schema->attribute(i).c_str();
@@ -233,7 +234,7 @@ int Metadata::reset_attributes(
     } 
   } else {
     array_attribute_num = 
-        (mode_ == TILEDB_METADATA_WRITE) ? attribute_num + 1 
+        (mode_ == TILEDB_METADATA_WRITE) ? attribute_num + 1
                                         : attribute_num;
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<attribute_num; ++i) {
@@ -248,13 +249,21 @@ int Metadata::reset_attributes(
     }
   }
 
+  // Reset attributes
+  int rc = array_->reset_attributes(
+               (const char**) array_attributes, 
+               array_attribute_num);
+
   // Clean up
   for(int i=0; i<array_attribute_num; ++i) 
     delete [] array_attributes[i];
   delete [] array_attributes;
 
-  // Success
-  return TILEDB_MT_OK;
+  // Return
+  if(rc == TILEDB_AR_OK)
+    return TILEDB_MT_OK;
+  else
+    return TILEDB_MT_ERR;
 }
 
 int Metadata::write(

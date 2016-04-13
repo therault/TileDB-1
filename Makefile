@@ -42,7 +42,7 @@ ifeq ($(BUILD),release)
 endif
 
 ifeq ($(BUILD),debug)
-  CPPFLAGS += -DDEBUG -gdwarf-3 -g3
+  CPPFLAGS += -DDEBUG -gdwarf-3 -g3 -Wall
 endif
 
 # --- Verbose mode handler --- #

@@ -56,7 +56,7 @@
 /*            CONTEXT             */
 /* ****************************** */
 
-typedef struct TileDB_CTX{
+typedef struct TileDB_CTX {
   StorageManager* storage_manager_;
 } TileDB_CTX;
 
@@ -69,7 +69,7 @@ int tiledb_ctx_init(TileDB_CTX** tiledb_ctx, const char* config_filename) {
     return TILEDB_ERR;
   }
 
-  // Create TileDB storage manager
+  // Create storage manager
   (*tiledb_ctx)->storage_manager_ = new StorageManager();
   if((*tiledb_ctx)->storage_manager_->init(config_filename) != TILEDB_SM_OK)
     return TILEDB_ERR;
@@ -79,14 +79,23 @@ int tiledb_ctx_init(TileDB_CTX** tiledb_ctx, const char* config_filename) {
 
 int tiledb_ctx_finalize(TileDB_CTX* tiledb_ctx) {
   // Trivial case
-  if(tiledb_ctx == NULL || tiledb_ctx->storage_manager_ == NULL)
+  if(tiledb_ctx == NULL)
     return TILEDB_OK;
 
-  // Delete TileDB storage manager
-  delete tiledb_ctx->storage_manager_;
+  // Finalize storage manager
+  int rc = TILEDB_OK;
+  if(tiledb_ctx->storage_manager_ != NULL)
+    rc = tiledb_ctx->storage_manager_->finalize();
 
-  // Success
-  return TILEDB_OK;
+  // Clean up
+  delete tiledb_ctx->storage_manager_;
+  free(tiledb_ctx);
+
+  // Return
+  if(rc == TILEDB_SM_OK)
+    return TILEDB_OK;
+  else
+    return TILEDB_ERR;
 }
 
 
@@ -290,6 +299,9 @@ int tiledb_array_set_schema(
     for(int i=0; i<attribute_num+1; ++i)
       tiledb_array_schema->compression_[i] = compression[i];
   }
+
+  // Success
+  return TILEDB_OK;
 }
 
 int tiledb_array_create(
@@ -551,13 +563,11 @@ int tiledb_array_overflow(
   return (int) tiledb_array->array_->overflow(attribute_id);
 }
 
-int tiledb_array_consolidate(const TileDB_Array* tiledb_array) {
-  // Sanity check
-  if(!sanity_check(tiledb_array))
-    return TILEDB_ERR;
-
+int tiledb_array_consolidate(
+    const TileDB_CTX* tiledb_ctx,
+    const char* array) {
   // Consolidate
-  if(tiledb_array->array_->consolidate() != TILEDB_AR_OK)
+  if(tiledb_ctx->storage_manager_->array_consolidate(array) != TILEDB_SM_OK)
     return TILEDB_ERR;
   else 
     return TILEDB_OK;
@@ -979,13 +989,11 @@ int tiledb_metadata_overflow(
 }
 
 int tiledb_metadata_consolidate(
-    const TileDB_Metadata* tiledb_metadata) {
-  // Sanity check
-  if(!sanity_check(tiledb_metadata))
-    return TILEDB_ERR;
-
+    const TileDB_CTX* tiledb_ctx,
+    const char* metadata) {
   // Consolidate
-  if(tiledb_metadata->metadata_->consolidate() != TILEDB_MT_OK)
+  if(tiledb_ctx->storage_manager_->metadata_consolidate(metadata) != 
+     TILEDB_SM_OK)
     return TILEDB_ERR;
   else 
     return TILEDB_OK;
