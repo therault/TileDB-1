@@ -93,11 +93,7 @@ StorageManager::~StorageManager() {
 /* ****************************** */
 
 int StorageManager::finalize() {
-  // Destroy open array mutex and return
-  if(mutex_destroy(&open_array_mtx_) != TILEDB_UT_OK)
-    return TILEDB_SM_ERR;
-  else
-    return TILEDB_SM_OK;
+  return mutex_destroy();
 }
 
 int StorageManager::init(const char* config_filename) {
@@ -136,11 +132,8 @@ int StorageManager::init(const char* config_filename) {
       return TILEDB_SM_ERR;
   }
 
-  // Initialize open array mutex and return
-  if(mutex_init(&open_array_mtx_) != TILEDB_SM_OK)
-    return TILEDB_SM_ERR;
-  else 
-    return TILEDB_SM_OK;
+  // Initialize mutexes and return
+  return mutex_init();
 }
 
 
@@ -1065,8 +1058,8 @@ int StorageManager::array_clear(
 }
 
 int StorageManager::array_close(const std::string& array) {
-  // Lock open array mutex
-  if(mutex_lock(&open_array_mtx_) != TILEDB_UT_OK)
+  // Lock mutexes
+  if(mutex_lock() != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
 
   // Find the open array entry
@@ -1084,8 +1077,8 @@ int StorageManager::array_close(const std::string& array) {
   // Delete open array entry if necessary
   int rc_mtx_destroy = TILEDB_SM_OK;
   if(it->second != NULL && it->second->cnt_ == 0) {
-    // Destroy mutex
-    rc_mtx_destroy = mutex_destroy(&(it->second->mtx_));
+    // Destroy mutexes
+    rc_mtx_destroy = it->second->mutex_destroy();
 
     // Clean up array schema
     delete it->second->array_schema_;
@@ -1102,11 +1095,11 @@ int StorageManager::array_close(const std::string& array) {
     open_arrays_.erase(it);
   } 
 
-  // Unlock open array mutex
-  int rc_mtx_unlock = mutex_unlock(&open_array_mtx_);
+  // Unlock mutexes
+  int rc_mtx_unlock = mutex_unlock();
 
   // Return
-  if(rc_mtx_destroy != TILEDB_UT_OK || rc_mtx_unlock != TILEDB_UT_OK)
+  if(rc_mtx_destroy != TILEDB_SM_OK || rc_mtx_unlock != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
   else
     return TILEDB_SM_OK;
@@ -1129,8 +1122,8 @@ int StorageManager::array_delete(
 int StorageManager::array_get_open_array_entry(
     const std::string& array,
     OpenArray*& open_array) {
-  // Lock open array mutex
-  if(mutex_lock(&open_array_mtx_) != TILEDB_UT_OK)
+  // Lock mutexes
+  if(mutex_lock() != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
 
   // Find the open array entry
@@ -1141,8 +1134,8 @@ int StorageManager::array_get_open_array_entry(
     open_array->array_schema_ = NULL;
     open_array->cnt_ = 0;
     open_array->book_keeping_ = std::vector<BookKeeping*>();
-    if(mutex_init(&(open_array->mtx_)) != TILEDB_UT_OK) {
-      mutex_unlock(&open_array_mtx_);
+    if(open_array->mutex_init() != TILEDB_SM_OK) {
+      open_array->mutex_unlock();
       return TILEDB_SM_ERR;
     }
     open_arrays_[real_dir(array)] = open_array; 
@@ -1150,12 +1143,8 @@ int StorageManager::array_get_open_array_entry(
     open_array = it->second;
   }
 
-  // Unlock open array mutex
-  if(mutex_unlock(&open_array_mtx_) != TILEDB_UT_OK)
-    return TILEDB_SM_ERR;
-
-  // Success
-  return TILEDB_SM_OK;
+  // Unlock mutexes and return
+  return mutex_unlock();
 }
 
 int StorageManager::array_move(
@@ -1208,7 +1197,7 @@ int StorageManager::array_open(
     return TILEDB_SM_ERR;
 
   // Lock the mutex of the array
-  if(mutex_lock(&(open_array->mtx_)) != TILEDB_UT_OK)
+  if(open_array->mutex_lock() != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
 
   // Load the array schema
@@ -1217,13 +1206,13 @@ int StorageManager::array_open(
     if(is_array(array)) {
       if(array_load_schema(array.c_str(), open_array->array_schema_) != 
          TILEDB_SM_OK) {
-        mutex_unlock(&(open_array->mtx_));
+        open_array->mutex_unlock();
         return TILEDB_SM_ERR;
       }
     } else if(is_metadata(array)) {
       if(metadata_load_schema(array.c_str(), open_array->array_schema_) != 
          TILEDB_SM_OK) {
-        mutex_unlock(&(open_array->mtx_));
+        open_array->mutex_unlock();
         return TILEDB_SM_ERR;
       }
     }
@@ -1240,7 +1229,7 @@ int StorageManager::array_open(
            open_array->array_schema_, 
            open_array->fragment_names_, 
            open_array->book_keeping_) != TILEDB_SM_OK) {
-      mutex_unlock(&(open_array->mtx_));
+      open_array->mutex_unlock();
       return TILEDB_SM_ERR;
     }
   }
@@ -1249,7 +1238,7 @@ int StorageManager::array_open(
   ++(open_array->cnt_);
 
   // Unlock the mutex of the array
-  if(mutex_unlock(&(open_array->mtx_)) != TILEDB_UT_OK) 
+  if(open_array->mutex_unlock() != TILEDB_UT_OK) 
     return TILEDB_SM_ERR;
 
   // Success 
@@ -1597,6 +1586,46 @@ int StorageManager::metadata_move(
   return TILEDB_SM_OK;
 }
 
+int StorageManager::mutex_destroy() {
+  int rc_pthread_mtx = ::mutex_destroy(&open_array_pthread_mtx_);
+  int rc_omp_mtx = ::mutex_destroy(&open_array_omp_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}
+
+int StorageManager::mutex_init() {
+  int rc_omp_mtx = ::mutex_init(&open_array_omp_mtx_);
+  int rc_pthread_mtx = ::mutex_init(&open_array_pthread_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}
+
+int StorageManager::mutex_lock() {
+  int rc_omp_mtx = ::mutex_lock(&open_array_omp_mtx_);
+  int rc_pthread_mtx = ::mutex_lock(&open_array_pthread_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}
+
+int StorageManager::mutex_unlock() {
+  int rc_omp_mtx = ::mutex_unlock(&open_array_omp_mtx_);
+  int rc_pthread_mtx = ::mutex_unlock(&open_array_pthread_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}
+
 void StorageManager::sort_fragment_names(
     std::vector<std::string>& fragment_names) const {
   // Initializations
@@ -1621,7 +1650,7 @@ void StorageManager::sort_fragment_names(
       if(stripped_fragment_name[j] == '_') {
         t_str = stripped_fragment_name.substr(
                     j+1,stripped_fragment_name_size-j);
-        sscanf(t_str.c_str(), "%lld", &t); 
+        sscanf(t_str.c_str(), "%lld", (long long int*)&t); 
         t_pos_vec[i] = std::pair<int64_t, int>(t, i);
         break;
       }
@@ -1799,3 +1828,42 @@ int StorageManager::workspace_move(
   return TILEDB_SM_OK;
 }
 
+int StorageManager::OpenArray::mutex_destroy() {
+  int rc_omp_mtx = ::mutex_destroy(&omp_mtx_);
+  int rc_pthread_mtx = ::mutex_destroy(&pthread_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}
+
+int StorageManager::OpenArray::mutex_init() {
+  int rc_omp_mtx = ::mutex_init(&omp_mtx_);
+  int rc_pthread_mtx = ::mutex_init(&pthread_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}
+
+int StorageManager::OpenArray::mutex_lock() {
+  int rc_omp_mtx = ::mutex_lock(&omp_mtx_);
+  int rc_pthread_mtx = ::mutex_lock(&pthread_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}
+
+int StorageManager::OpenArray::mutex_unlock() {
+  int rc_omp_mtx = ::mutex_unlock(&omp_mtx_);
+  int rc_pthread_mtx = ::mutex_unlock(&pthread_mtx_);
+
+  if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
+    return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
+}

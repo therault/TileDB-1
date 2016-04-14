@@ -41,6 +41,7 @@
 #include "metadata_iterator.h"
 #include "metadata_schema_c.h"
 #include <map>
+#include <omp.h>
 #include <pthread.h>
 #include <string>
 
@@ -70,34 +71,8 @@ class StorageManager {
   /** The operation type on the master catalog (insertion or deletion). */
   enum MasterCatalogOp {TILEDB_SM_MC_INS, TILEDB_SM_MC_DEL};
 
-  /**  
-   * Store information about an open array. An array is open if it has been
-   * initialized once (withour being finalized). The difference with array
-   * initialization is that an array can be initialized multiple times,
-   * but opened only once. This structure maintains the information that
-   * can be used by multiple array objects that initialize the same array,
-   * in order to avoid replication and speed-up performance (e.g., array
-   * schema and book-keeping).
-   */
-  class OpenArray {
-   public:
-    /** 
-     * A mutex used to lock the array when loading the array schema and the
-     * book-keeping structures from the disk.
-     */
-    pthread_mutex_t mtx_;
-    /** The array schema. */
-    ArraySchema* array_schema_;
-    /** The book-keeping structures for all the fragments of the array. */
-    std::vector<BookKeeping*> book_keeping_;
-    /** 
-     * A counter for the number of times the array has been initialized after 
-     * it was opened.
-     */
-    int cnt_;
-    /** The names of the fragments of the open array. */
-    std::vector<std::string> fragment_names_;
-  };
+  /** Implements an open array entry. */
+  class OpenArray;
 
   /* ********************************* */
   /*     CONSTRUCTORS & DESTRUCTORS    */
@@ -497,8 +472,10 @@ class StorageManager {
 
   /** The directory of the master catalog. */
   std::string master_catalog_dir_;
-  /** Mutex for creating/deleting an OpenArray object. */
-  pthread_mutex_t open_array_mtx_;
+  /** OpneMP mutex for creating/deleting an OpenArray object. */
+  omp_lock_t open_array_omp_mtx_;
+  /** Pthread mutex for creating/deleting an OpenArray object. */
+  pthread_mutex_t open_array_pthread_mtx_;
   /** Stores the currently open arrays. */
   std::map<std::string, OpenArray*> open_arrays_;
   /** The TileDB home directory. */
@@ -719,6 +696,34 @@ class StorageManager {
        const std::string& old_metadata,
        const std::string& new_metadata) const;
 
+  /**
+   * Destroys all the mutexes.
+   *
+   * @return TILEDB_SM_OK for success and TILEDB_SM_ERR for error.
+   */
+  int mutex_destroy();
+
+  /**
+   * Initializes all the mutexes.
+   *
+   * @return TILEDB_SM_OK for success and TILEDB_SM_ERR for error.
+   */
+  int mutex_init();
+
+  /**
+   * Locks all the mutexes.
+   *
+   * @return TILEDB_SM_OK for success and TILEDB_SM_ERR for error.
+   */
+  int mutex_lock();
+
+  /**
+   * Unlocks all the mutexes.
+   *
+   * @return TILEDB_SM_OK for success and TILEDB_SM_ERR for error.
+   */
+  int mutex_unlock();
+
   /** 
    * Appropriately sorts the fragment names based on their name timestamps.
    * The result is stored in the input vector.
@@ -758,5 +763,71 @@ class StorageManager {
        const std::string& old_workspace,
        const std::string& new_workspace);
 }; 
+
+/**  
+ * Stores information about an open array. An array is open if it has been
+ * initialized once (withour being finalized). The difference with array
+ * initialization is that an array can be initialized multiple times,
+ * but opened only once. This structure maintains the information that
+ * can be used by multiple array objects that initialize the same array,
+ * in order to avoid replication and speed-up performance (e.g., array
+ * schema and book-keeping).
+ */
+class StorageManager::OpenArray {
+ public:
+  // ATTRIBUTES
+
+  /** The array schema. */
+  ArraySchema* array_schema_;
+  /** The book-keeping structures for all the fragments of the array. */
+  std::vector<BookKeeping*> book_keeping_;
+  /** 
+   * A counter for the number of times the array has been initialized after 
+   * it was opened.
+   */
+  int cnt_;
+  /** The names of the fragments of the open array. */
+  std::vector<std::string> fragment_names_;
+  /** 
+   * An OpenMP mutex used to lock the array when loading the array schema and
+   * the book-keeping structures from the disk.
+   */
+  omp_lock_t omp_mtx_;
+  /** 
+   * A pthread mutex used to lock the array when loading the array schema and
+   * the book-keeping structures from the disk.
+   */
+  pthread_mutex_t pthread_mtx_;
+
+  // FUNCTIONS
+
+  /**
+   * Destroys the mutexes.
+   *
+   * @return TILEDB_SM_OK for success, and TILEDB_SM_ERR for error.
+   */
+  int mutex_destroy();
+
+  /**
+   * Initializes the mutexes.
+   *
+   * @return TILEDB_SM_OK for success, and TILEDB_SM_ERR for error.
+   */
+  int mutex_init();
+
+  /**
+   * Locks the mutexes.
+   *
+   * @return TILEDB_SM_OK for success, and TILEDB_SM_ERR for error.
+   */
+  int mutex_lock();
+
+  /**
+   * Unlocks the mutexes.
+   *
+   * @return TILEDB_SM_OK for success, and TILEDB_SM_ERR for error.
+   */
+  int mutex_unlock();
+};
 
 #endif

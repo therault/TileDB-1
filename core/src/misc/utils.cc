@@ -585,6 +585,12 @@ bool is_workspace(const std::string& dir) {
     return false;
 }
 
+int mutex_destroy(omp_lock_t* mtx) {
+  omp_destroy_lock(mtx);
+
+  return TILEDB_UT_OK;
+}
+
 int mutex_destroy(pthread_mutex_t* mtx) {
   if(pthread_mutex_destroy(mtx) != 0) {
     PRINT_ERROR("Cannot destroy mutex");
@@ -592,6 +598,12 @@ int mutex_destroy(pthread_mutex_t* mtx) {
   } else {
     return TILEDB_UT_OK;
   }
+}
+
+int mutex_init(omp_lock_t* mtx) {
+  omp_init_lock(mtx);
+
+  return TILEDB_UT_OK;
 }
 
 int mutex_init(pthread_mutex_t* mtx) {
@@ -603,6 +615,12 @@ int mutex_init(pthread_mutex_t* mtx) {
   }
 }
 
+int mutex_lock(omp_lock_t* mtx) {
+  omp_set_lock(mtx);
+
+  return TILEDB_UT_OK;
+}
+
 int mutex_lock(pthread_mutex_t* mtx) {
   if(pthread_mutex_lock(mtx) != 0) {
     PRINT_ERROR("Cannot lock mutex");
@@ -610,6 +628,12 @@ int mutex_lock(pthread_mutex_t* mtx) {
   } else {
     return TILEDB_UT_OK;
   }
+}
+
+int mutex_unlock(omp_lock_t* mtx) {
+  omp_unset_lock(mtx);
+
+  return TILEDB_UT_OK;
 }
 
 int mutex_unlock(pthread_mutex_t* mtx) {
