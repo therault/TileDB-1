@@ -487,6 +487,12 @@ int StorageManager::array_init(
     const void* subarray,
     const char** attributes,
     int attribute_num)  {
+  // Check array name length
+  if(array_dir == NULL || strlen(array_dir) > TILEDB_NAME_MAX_LEN) {
+    PRINT_ERROR("Invalid array name length");
+    return TILEDB_SM_ERR;
+  }
+
   // Open the array
   OpenArray* open_array;
   if(array_open(array_dir, mode, open_array) != TILEDB_SM_OK)
@@ -764,6 +770,12 @@ int StorageManager::metadata_init(
     int mode,
     const char** attributes,
     int attribute_num)  {
+  // Check metadata name length
+  if(metadata_dir == NULL || strlen(metadata_dir) > TILEDB_NAME_MAX_LEN) {
+    PRINT_ERROR("Invalid metadata name length");
+    return TILEDB_SM_ERR;
+  }
+
   // Open the array that implements the metadata
   OpenArray* open_array;
   if(array_open(metadata_dir, mode, open_array) != TILEDB_SM_OK)

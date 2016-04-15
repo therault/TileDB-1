@@ -181,6 +181,11 @@ int Metadata::init(
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<attribute_num; ++i) {
       size_t attribute_len = strlen(attributes[i]);
+      // Check attribute name length
+      if(attributes[i] == NULL || attribute_len > TILEDB_NAME_MAX_LEN) {
+        PRINT_ERROR("Invalid attrubute name length");
+        return TILEDB_MT_ERR;
+      }
       array_attributes[i] = new char[attribute_len+1];
       strcpy(array_attributes[i], attributes[i]);
     }
@@ -239,6 +244,11 @@ int Metadata::reset_attributes(
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<attribute_num; ++i) {
       size_t attribute_len = strlen(attributes[i]);
+      // Check attribute name length
+      if(attributes[i] == NULL || attribute_len > TILEDB_NAME_MAX_LEN) {
+        PRINT_ERROR("Invalid attribute name length");
+        return TILEDB_MT_ERR;
+      }
       array_attributes[i] = new char[attribute_len+1];
       strcpy(array_attributes[i], attributes[i]);
     }

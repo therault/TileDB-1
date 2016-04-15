@@ -197,10 +197,11 @@ int Array::consolidate() {
     if(fragments_[i]->finalize() != TILEDB_FG_OK)
       return TILEDB_AR_ERR;
 
-    if(delete_dir(fragments_[i]->fragment_name()) != TILEDB_UT_OK)
-      return TILEDB_AR_ERR;
-
+    std::string fragment_name = fragments_[i]->fragment_name();
     delete fragments_[i];
+
+    if(delete_dir(fragment_name) != TILEDB_UT_OK)
+      return TILEDB_AR_ERR;
   }
   fragments_.clear();
 
@@ -339,9 +340,16 @@ int Array::init(
       // unless in TILEDB_WRITE_UNSORTED mode
       attributes_vec.pop_back(); 
   } else {                 // Custom attributes
+    // Get attributes
     for(int i=0; i<attribute_num; ++i) {
+      // Check attribute name length
+      if(attributes[i] == NULL || strlen(attributes[i]) > TILEDB_NAME_MAX_LEN) {
+        PRINT_ERROR("Invalid attrubute name length");
+        return TILEDB_AR_ERR;
+      }
       attributes_vec.push_back(attributes[i]);
     }
+
     // Sanity check on duplicates 
     if(has_duplicates(attributes_vec)) {
       PRINT_ERROR("Cannot initialize array; Duplicate attributes");
@@ -387,9 +395,16 @@ int Array::reset_attributes(
     if(array_schema_->dense()) // Remove coordinates attribute for dense
       attributes_vec.pop_back(); 
   } else {                 //  Custom attributes
+    // Copy attribute names
     for(int i=0; i<attribute_num; ++i) {
+      // Check attribute name length
+      if(attributes[i] == NULL || strlen(attributes[i]) > TILEDB_NAME_MAX_LEN) {
+        PRINT_ERROR("Invalid attribute name length");
+        return TILEDB_AR_ERR;
+      }
       attributes_vec.push_back(attributes[i]);
     }
+
     // Sanity check on duplicates 
     if(has_duplicates(attributes_vec)) {
       PRINT_ERROR("Cannot reset attributes; Duplicate attributes");
