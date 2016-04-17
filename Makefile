@@ -239,7 +239,8 @@ clean_libtiledb:
 $(EXAMPLES_OBJ_DIR)/%.o: $(EXAMPLES_SRC_DIR)/%.cc
 	@mkdir -p $(EXAMPLES_OBJ_DIR)
 	@echo "Compiling $<"
-	@$(CXX) $(CPPFLAGS) $(INCLUDE_PATHS) $(EXAMPLES_INCLUDE_PATHS) \
+	@$(CXX) $(CPPFLAGS) -fopenmp $(INCLUDE_PATHS) \
+                $(EXAMPLES_INCLUDE_PATHS) \
 		$(CORE_INCLUDE_PATHS) -c $< -o $@
 	@$(CXX) -MM $(EXAMPLES_INCLUDE_PATHS) \
                     $(CORE_INCLUDE_PATHS) $< > $(@:.o=.d)

@@ -493,22 +493,27 @@ int StorageManager::array_init(
     return TILEDB_SM_ERR;
   }
 
+  // Load array schema
+  ArraySchema* array_schema;
+  if(array_load_schema(array_dir, array_schema) != TILEDB_SM_OK)
+    return TILEDB_SM_ERR;
+
   // Open the array
   OpenArray* open_array;
-  if(array_open(array_dir, mode, open_array) != TILEDB_SM_OK)
+  if(array_open(array_schema, mode, open_array) != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
 
   // Create Array object
   array = new Array();
   if(array->init(
-         open_array->array_schema_, 
+         array_schema, 
          open_array->fragment_names_,
          open_array->book_keeping_,
          mode, 
          attributes, 
          attribute_num, 
-         subarray) !=
-     TILEDB_AR_OK) {
+         subarray) != TILEDB_AR_OK) {
+    delete array_schema;
     delete array;
     array = NULL;
     array_close(array_dir);
@@ -776,15 +781,20 @@ int StorageManager::metadata_init(
     return TILEDB_SM_ERR;
   }
 
+  // Load metadata schema
+  ArraySchema* array_schema;
+  if(metadata_load_schema(metadata_dir, array_schema) != TILEDB_SM_OK)
+    return TILEDB_SM_ERR;
+
   // Open the array that implements the metadata
   OpenArray* open_array;
-  if(array_open(metadata_dir, mode, open_array) != TILEDB_SM_OK)
+  if(array_open(array_schema, mode, open_array) != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
 
   // Create metadata object
   metadata = new Metadata();
   int rc = metadata->init(
-               open_array->array_schema_, 
+               array_schema, 
                open_array->fragment_names_,
                open_array->book_keeping_,
                mode, 
@@ -793,6 +803,7 @@ int StorageManager::metadata_init(
 
   // Return
   if(rc != TILEDB_MT_OK) {
+    delete array_schema;
     delete metadata;
     metadata = NULL;
     array_close(metadata_dir);
@@ -1075,7 +1086,8 @@ int StorageManager::array_close(const std::string& array) {
     return TILEDB_SM_ERR;
 
   // Find the open array entry
-  std::map<std::string, OpenArray*>::iterator it = open_arrays_.find(array);
+  std::map<std::string, OpenArray*>::iterator it = 
+      open_arrays_.find(real_dir(array));
 
   // Sanity check
   if(it == open_arrays_.end()) { 
@@ -1091,9 +1103,6 @@ int StorageManager::array_close(const std::string& array) {
   if(it->second != NULL && it->second->cnt_ == 0) {
     // Destroy mutexes
     rc_mtx_destroy = it->second->mutex_destroy();
-
-    // Clean up array schema
-    delete it->second->array_schema_;
 
     // Clean up book-keeping
     std::vector<BookKeeping*>::iterator bit = it->second->book_keeping_.begin();
@@ -1143,14 +1152,13 @@ int StorageManager::array_get_open_array_entry(
   // Create and init entry if it does not exist
   if(it == open_arrays_.end()) { 
     open_array = new OpenArray();
-    open_array->array_schema_ = NULL;
     open_array->cnt_ = 0;
     open_array->book_keeping_ = std::vector<BookKeeping*>();
     if(open_array->mutex_init() != TILEDB_SM_OK) {
       open_array->mutex_unlock();
       return TILEDB_SM_ERR;
     }
-    open_arrays_[real_dir(array)] = open_array; 
+    open_arrays_[array] = open_array; 
   } else {
     open_array = it->second;
   }
@@ -1201,44 +1209,28 @@ int StorageManager::array_move(
 }
 
 int StorageManager::array_open(
-    const std::string& array, 
+    const ArraySchema* array_schema, 
     int mode,
     OpenArray*& open_array) {
+  // For easy reference
+  std::string array_name = array_schema->array_name();
+
   // Get the open array entry
-  if(array_get_open_array_entry(array, open_array) != TILEDB_SM_OK)
+  if(array_get_open_array_entry(array_name, open_array) != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
 
   // Lock the mutex of the array
   if(open_array->mutex_lock() != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
 
-  // Load the array schema
-  if(open_array->array_schema_ == NULL) {
-    // The input is an array
-    if(is_array(array)) {
-      if(array_load_schema(array.c_str(), open_array->array_schema_) != 
-         TILEDB_SM_OK) {
-        open_array->mutex_unlock();
-        return TILEDB_SM_ERR;
-      }
-    } else if(is_metadata(array)) {
-      if(metadata_load_schema(array.c_str(), open_array->array_schema_) != 
-         TILEDB_SM_OK) {
-        open_array->mutex_unlock();
-        return TILEDB_SM_ERR;
-      }
-    }
-  }
-
   if(mode == TILEDB_ARRAY_READ && 
      open_array->fragment_names_.size() == 0) {
-
     // Get the fragment names
-    array_get_fragment_names(array, open_array->fragment_names_);
+    array_get_fragment_names(array_name, open_array->fragment_names_);
 
     // Load the book-keeping for each fragment
     if(array_load_book_keeping(
-           open_array->array_schema_, 
+           array_schema, 
            open_array->fragment_names_, 
            open_array->book_keeping_) != TILEDB_SM_OK) {
       open_array->mutex_unlock();
@@ -1599,8 +1591,8 @@ int StorageManager::metadata_move(
 }
 
 int StorageManager::mutex_destroy() {
-  int rc_pthread_mtx = ::mutex_destroy(&open_array_pthread_mtx_);
   int rc_omp_mtx = ::mutex_destroy(&open_array_omp_mtx_);
+  int rc_pthread_mtx = ::mutex_destroy(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
     return TILEDB_SM_ERR;
@@ -1852,7 +1844,7 @@ int StorageManager::OpenArray::mutex_destroy() {
 
 int StorageManager::OpenArray::mutex_init() {
   int rc_omp_mtx = ::mutex_init(&omp_mtx_);
-  int rc_pthread_mtx = ::mutex_init(&pthread_mtx_);
+  int rc_pthread_mtx =  ::mutex_init(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
     return TILEDB_SM_ERR;

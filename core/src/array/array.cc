@@ -36,8 +36,10 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <omp.h>
 #include <sstream>
 #include <sys/time.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 /* ****************************** */
@@ -76,6 +78,9 @@ Array::~Array() {
   for(; it != fragments_.end(); ++it)
     if(*it != NULL)
        delete *it;
+
+  if(array_schema_ != NULL)
+    delete array_schema_;
 
   if(subarray_ != NULL)
     free(subarray_);
@@ -357,9 +362,6 @@ int Array::init(
     }
   }
   
-  // Set array schema
-  array_schema_ = array_schema;
-
   // Set attribute ids
   if(array_schema->get_attribute_ids(attributes_vec, attribute_ids_) 
          == TILEDB_AS_ERR)
@@ -368,17 +370,24 @@ int Array::init(
   // Set mode
   mode_ = mode;
 
+  // Set array schema
+  array_schema_ = array_schema;
+
   // Initialize new fragment if needed
   if(mode_ == TILEDB_ARRAY_WRITE || 
      mode_ == TILEDB_ARRAY_WRITE_UNSORTED) {
     Fragment* fragment = new Fragment(this);
     fragments_.push_back(fragment);
-    if(fragment->init(new_fragment_name(), mode_, subarray) != TILEDB_FG_OK)
+    if(fragment->init(new_fragment_name(), mode_, subarray) != TILEDB_FG_OK) {
+      array_schema_ = NULL;
       return TILEDB_AR_ERR;
+    }
   } else if(mode_ == TILEDB_ARRAY_READ) {
-    if(open_fragments(fragment_names, book_keeping) != TILEDB_AR_OK)
+    if(open_fragments(fragment_names, book_keeping) != TILEDB_AR_OK) {
+      array_schema_ = NULL;
       return TILEDB_AR_ERR;
-      array_read_state_ = new ArrayReadState(this);
+    }
+    array_read_state_ = new ArrayReadState(this);
   }
 
   // Return
@@ -497,8 +506,10 @@ std::string Array::new_fragment_name() const {
   struct timeval tp;
   gettimeofday(&tp, NULL);
   uint64_t ms = (uint64_t) tp.tv_sec * 1000L + tp.tv_usec / 1000;
+  unsigned int tid = (unsigned int) syscall(SYS_gettid);
+
   fragment_name << array_schema_->array_name() << "/.__" 
-                << getpid() << "_" << ms;
+                << tid  << "_" << ms;
 
   return fragment_name.str();
 }

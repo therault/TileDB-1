@@ -166,7 +166,9 @@ int Metadata::init(
   char** array_attributes;
   int array_attribute_num;
   if(attributes == NULL) {
-    array_attribute_num = array_schema->attribute_num() + 1;
+    array_attribute_num = 
+        (mode == TILEDB_METADATA_WRITE) ? array_schema->attribute_num() + 1
+                                        : array_schema->attribute_num();
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<array_attribute_num; ++i) {
       const char* attribute = array_schema->attribute(i).c_str();
@@ -229,7 +231,9 @@ int Metadata::reset_attributes(
   char** array_attributes;
   int array_attribute_num;
   if(attributes == NULL) {
-    array_attribute_num = array_schema->attribute_num() + 1;
+    array_attribute_num = 
+        (mode_ == TILEDB_METADATA_WRITE) ? array_schema->attribute_num() + 1
+                                        : array_schema->attribute_num();
     array_attributes = new char*[array_attribute_num];
     for(int i=0; i<array_attribute_num; ++i) {
       const char* attribute = array_schema->attribute(i).c_str();

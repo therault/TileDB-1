@@ -567,13 +567,13 @@ class StorageManager {
    * array is being initialized. The book-keeping structures are loaded only
    * if the input mode is TILEDB_ARRAY_READ.
    *
-   * @param array The array name.
+   * @param array_schema The array schema.
    * @param mode The mode in which the array is being initialized.
    * @param open_array The open array entry that is retrieved.
    * @return TILEDB_SM_OK for success and TILEDB_SM_ERR for error.
    */
   int array_open(
-      const std::string& array, 
+      const ArraySchema* array_schema, 
       int mode,
       OpenArray*& open_array);
 
@@ -777,8 +777,6 @@ class StorageManager::OpenArray {
  public:
   // ATTRIBUTES
 
-  /** The array schema. */
-  ArraySchema* array_schema_;
   /** The book-keeping structures for all the fragments of the array. */
   std::vector<BookKeeping*> book_keeping_;
   /** 
