@@ -1056,7 +1056,7 @@ int ArrayReadState::read_dense_attr(
 
     // Prepare the cell ranges for the next read round
     if(fragment_cell_pos_ranges_vec_pos_[attribute_id] >= 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       // Get next cell ranges
       if(get_next_fragment_cell_ranges_dense<T>() != TILEDB_ARS_OK)
         return TILEDB_ARS_ERR;
@@ -1065,7 +1065,7 @@ int ArrayReadState::read_dense_attr(
     // Check if read is done
     if(done_ &&
        fragment_cell_pos_ranges_vec_pos_[attribute_id] == 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       buffer_size = buffer_offset;
       return TILEDB_ARS_OK;
     }
@@ -1151,7 +1151,7 @@ int ArrayReadState::read_dense_attr_var(
 
     // Prepare the cell ranges for the next read round
     if(fragment_cell_pos_ranges_vec_pos_[attribute_id] >= 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       // Get next cell ranges
       if(get_next_fragment_cell_ranges_dense<T>() != TILEDB_ARS_OK)
         return TILEDB_ARS_ERR;
@@ -1160,7 +1160,7 @@ int ArrayReadState::read_dense_attr_var(
     // Check if read is done
     if(done_ &&
        fragment_cell_pos_ranges_vec_pos_[attribute_id] == 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       buffer_size = buffer_offset;
       buffer_var_size = buffer_var_offset;
       return TILEDB_ARS_OK;
@@ -1314,7 +1314,7 @@ int ArrayReadState::read_sparse_attr(
 
     // Prepare the cell ranges for the next read round
     if(fragment_cell_pos_ranges_vec_pos_[attribute_id] >= 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       // Get next cell ranges
       if(get_next_fragment_cell_ranges_sparse<T>() != TILEDB_ARS_OK)
         return TILEDB_ARS_ERR;
@@ -1323,7 +1323,7 @@ int ArrayReadState::read_sparse_attr(
     // Check if read is done
     if(done_ && 
        fragment_cell_pos_ranges_vec_pos_[attribute_id] == 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       buffer_size = buffer_offset;
       return TILEDB_ARS_OK;
     }
@@ -1423,7 +1423,7 @@ int ArrayReadState::read_sparse_attr_var(
 
     // Prepare the cell ranges for the next read round
     if(fragment_cell_pos_ranges_vec_pos_[attribute_id] >= 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       // Get next overlapping tiles
       if(get_next_fragment_cell_ranges_sparse<T>() != TILEDB_ARS_OK)
         return TILEDB_ARS_ERR;
@@ -1432,7 +1432,7 @@ int ArrayReadState::read_sparse_attr_var(
     // Check if read is done
     if(done_ &&
        fragment_cell_pos_ranges_vec_pos_[attribute_id] == 
-       fragment_cell_pos_ranges_vec_.size()) {
+       int64_t(fragment_cell_pos_ranges_vec_.size())) {
       buffer_size = buffer_offset;
       buffer_var_size = buffer_var_offset;
       return TILEDB_ARS_OK;
@@ -1682,7 +1682,7 @@ int ArrayReadState::sort_fragment_cell_ranges(
       free(pq.top().second);
       pq.pop();
     }
-    for(int i=0; i<fragment_cell_ranges.size(); ++i)
+    for(int64_t i=0; i<int64_t(fragment_cell_ranges.size()); ++i)
       free(fragment_cell_ranges[i].second);
     fragment_cell_ranges.clear();
   } else {

@@ -78,7 +78,8 @@ int main(int argc, char** argv) {
   // Check existence
   if(buffer_sizes[0] == 0 && !tiledb_metadata_overflow(tiledb_metadata, 0)) {
     fprintf(stderr, "Key '%s' does not exist in the metadata!\n", argv[1]);
-  }  else if(buffer_sizes[2] == 0 && tiledb_metadata_overflow(tiledb_metadata, 1)) {
+  }  else if(buffer_sizes[2] == 0 && 
+             tiledb_metadata_overflow(tiledb_metadata, 1)) {
     // Check overflow for a2 
     fprintf(stderr, "Reading value on attribute 'a2' for key '%s' resulted in "
             "a buffer overflow!\n", argv[1]);
@@ -91,7 +92,7 @@ int main(int argc, char** argv) {
         "%s: a1=%d, a2=%.*s\n", 
         argv[1], 
         static_cast<int*>(buffers[0])[0],
-        buffer_sizes[2],
+        int(buffer_sizes[2]),
         static_cast<char*>(buffers[2]));
   }
 

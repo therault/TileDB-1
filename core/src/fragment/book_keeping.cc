@@ -561,7 +561,7 @@ int BookKeeping::flush_tile_offsets(gzFile fd) const {
 
     // Write tile offsets
     if(gzwrite(fd, &tile_offsets_[i][0], tile_offsets_num * sizeof(off_t)) !=
-       tile_offsets_num * sizeof(off_t)) {
+       int(tile_offsets_num * sizeof(off_t))) {
       PRINT_ERROR("Cannot finalize book-keeping; Writing tile offsets failed");
       return TILEDB_BK_ERR;
     }
@@ -602,7 +602,7 @@ int BookKeeping::flush_tile_var_offsets(gzFile fd) const {
            fd,  
            &tile_var_offsets_[i][0], 
            tile_var_offsets_num * sizeof(off_t)) !=
-       tile_var_offsets_num * sizeof(off_t)) {
+       int(tile_var_offsets_num * sizeof(off_t))) {
       PRINT_ERROR("Cannot finalize book-keeping; Writing variable tile "
                   "offsets failed");
       return TILEDB_BK_ERR;
@@ -644,7 +644,7 @@ int BookKeeping::flush_tile_var_sizes(gzFile fd) const {
            fd,  
            &tile_var_sizes_[i][0], 
            tile_var_sizes_num * sizeof(size_t)) !=
-       tile_var_sizes_num * sizeof(size_t)) {
+       int(tile_var_sizes_num * sizeof(size_t))) {
       PRINT_ERROR("Cannot finalize book-keeping; Writing variable tile "
                   "sizes failed");
       return TILEDB_BK_ERR;
@@ -803,7 +803,7 @@ int BookKeeping::load_tile_offsets(gzFile fd) {
     // Get tile offsets
     tile_offsets_[i].resize(tile_offsets_num);
     if(gzread(fd, &tile_offsets_[i][0], tile_offsets_num * sizeof(off_t)) != 
-       tile_offsets_num * sizeof(off_t)) {
+       int(tile_offsets_num * sizeof(off_t))) {
       PRINT_ERROR("Cannot load book-keeping; Reading tile offsets failed");
       return TILEDB_BK_ERR;
     }
@@ -847,7 +847,7 @@ int BookKeeping::load_tile_var_offsets(gzFile fd) {
            fd, 
            &tile_var_offsets_[i][0], 
            tile_var_offsets_num * sizeof(off_t)) != 
-       tile_var_offsets_num * sizeof(off_t)) {
+       int(tile_var_offsets_num * sizeof(off_t))) {
       PRINT_ERROR("Cannot load book-keeping; Reading variable tile "
                   "offsets failed");
       return TILEDB_BK_ERR;
@@ -892,7 +892,7 @@ int BookKeeping::load_tile_var_sizes(gzFile fd) {
            fd, 
            &tile_var_sizes_[i][0], 
            tile_var_sizes_num * sizeof(size_t)) != 
-       tile_var_sizes_num * sizeof(size_t)) {
+       int(tile_var_sizes_num * sizeof(size_t))) {
       PRINT_ERROR("Cannot load book-keeping; Reading variable tile "
                   "sizes failed");
       return TILEDB_BK_ERR;

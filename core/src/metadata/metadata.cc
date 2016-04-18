@@ -341,7 +341,7 @@ void Metadata::compute_array_coords(
     size_t& coords_size) const {
   // Compute keys offsets
   size_t* keys_offsets = (size_t*) malloc(10*sizeof(size_t)); 
-  size_t keys_num_allocated = 10;
+  int64_t keys_num_allocated = 10;
   int64_t keys_num = 0;
   bool null_char_found = true;
   for(size_t i=0; i<keys_size; ++i) {

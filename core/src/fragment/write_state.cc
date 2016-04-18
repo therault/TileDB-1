@@ -1486,7 +1486,7 @@ int WriteState::write_sparse_unsorted_attr_cmp_none(
 
   // Check number of cells in buffer
   int64_t buffer_cell_num = buffer_size / cell_size;
-  if(buffer_cell_num != cell_pos.size()) {
+  if(buffer_cell_num != int64_t(cell_pos.size())) {
     PRINT_ERROR(std::string("Cannot write sparse unsorted; Invalid number of "
                 "cells in attribute '") + 
                 array_schema->attribute(attribute_id) + "'");
@@ -1550,7 +1550,7 @@ int WriteState::write_sparse_unsorted_attr_cmp_gzip(
 
   // Check number of cells in buffer
   int64_t buffer_cell_num = buffer_size / cell_size;
-  if(buffer_cell_num != cell_pos.size()) {
+  if(buffer_cell_num != int64_t(cell_pos.size())) {
     PRINT_ERROR(std::string("Cannot write sparse unsorted; Invalid number of "
                 "cells in attribute '") + 
                 array_schema->attribute(attribute_id) + "'");
@@ -1648,7 +1648,7 @@ int WriteState::write_sparse_unsorted_attr_var_cmp_none(
 
   // Check number of cells in buffer
   int64_t buffer_cell_num = buffer_size / cell_size;
-  if(buffer_cell_num != cell_pos.size()) {
+  if(buffer_cell_num != int64_t(cell_pos.size())) {
     PRINT_ERROR(std::string("Cannot write sparse unsorted variable; "
                 "Invalid number of cells in attribute '") + 
                 array_schema->attribute(attribute_id) + "'");
@@ -1740,7 +1740,7 @@ int WriteState::write_sparse_unsorted_attr_var_cmp_gzip(
 
   // Check number of cells in buffer
   int64_t buffer_cell_num = buffer_size / cell_size;
-  if(buffer_cell_num != cell_pos.size()) {
+  if(buffer_cell_num != int64_t(cell_pos.size())) {
     PRINT_ERROR(std::string("Cannot write sparse unsorted variable; "
                 "Invalid number of cells in attribute '") + 
                 array_schema->attribute(attribute_id) + "'");
