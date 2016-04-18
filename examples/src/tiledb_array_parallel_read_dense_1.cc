@@ -117,8 +117,12 @@ int main() {
 
   // Output result
   int total_count = 0;
-  for(int i=0; i<4; ++i)
+  for(int i=0; i<4; ++i) {
+
+printf("%d\n", thread_data[i].count);
+
     total_count += thread_data[i].count;
+  }
   printf("Number of a1 values greater than 10: %d \n", total_count);
 
   // Finalize context
@@ -151,10 +155,11 @@ void *parallel_read(void* args) {
   // Count number of a1 values greater than 10
   data->count = 0;
   int* a1 = (int*) data->buffers[0];
-  int num = data->buffer_sizes[0] / sizeof(size_t);
-  for(int i=0; i<num; ++i)
+  int num = data->buffer_sizes[0] / sizeof(int);
+  for(int i=0; i<num; ++i) {
     if(a1[i] > 10)
       ++data->count;
+  }
 
   // Finalize array
   tiledb_array_finalize(tiledb_array);
