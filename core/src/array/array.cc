@@ -506,7 +506,9 @@ std::string Array::new_fragment_name() const {
   struct timeval tp;
   gettimeofday(&tp, NULL);
   uint64_t ms = (uint64_t) tp.tv_sec * 1000L + tp.tv_usec / 1000;
-  unsigned int tid = (unsigned int) syscall(SYS_gettid);
+  pthread_t self = pthread_self();
+  uint64_t tid;
+  memcpy(&tid, &self, std::min(sizeof(self), sizeof(tid)));
 
   fragment_name << array_schema_->array_name() << "/.__" 
                 << tid  << "_" << ms;
