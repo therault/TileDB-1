@@ -185,7 +185,7 @@ int Metadata::init(
       size_t attribute_len = strlen(attributes[i]);
       // Check attribute name length
       if(attributes[i] == NULL || attribute_len > TILEDB_NAME_MAX_LEN) {
-        PRINT_ERROR("Invalid attrubute name length");
+        PRINT_ERROR("Invalid attribute name length");
         return TILEDB_MT_ERR;
       }
       array_attributes[i] = new char[attribute_len+1];

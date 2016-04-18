@@ -605,14 +605,38 @@ int StorageManager::array_iterator_finalize(
 /* ****************************** */
 
 int StorageManager::metadata_consolidate(const char* metadata_dir) {
+  // Load metadata schema
+  ArraySchema* array_schema;
+  if(metadata_load_schema(metadata_dir, array_schema) != TILEDB_SM_OK)
+    return TILEDB_SM_ERR;
+
+  // Set attributes
+  char** attributes;
+  int attribute_num = array_schema->attribute_num();
+    attributes = new char*[attribute_num+1];
+    for(int i=0; i<attribute_num+1; ++i) {
+      const char* attribute = array_schema->attribute(i).c_str();
+      size_t attribute_len = strlen(attribute);
+      attributes[i] = new char[attribute_len+1];
+      strcpy(attributes[i], attribute);
+    }
+
   // Create a metadata object
   Metadata* metadata;
-  if(metadata_init(
-      metadata,
-      metadata_dir,
-      TILEDB_METADATA_READ,
-      NULL,
-      0) != TILEDB_SM_OK) 
+  int rc_init = metadata_init(
+                    metadata,
+                    metadata_dir,
+                    TILEDB_METADATA_READ,
+                    (const char**) attributes,
+                    attribute_num+1);
+
+  // Clean up
+  for(int i=0; i<attribute_num+1; ++i) 
+    delete [] attributes[i];
+  delete [] attributes;
+  delete array_schema;
+
+  if(rc_init != TILEDB_MT_OK)
     return TILEDB_SM_ERR;
 
   // Consolidate metadata
@@ -622,7 +646,7 @@ int StorageManager::metadata_consolidate(const char* metadata_dir) {
   int rc_finalize = metadata_finalize(metadata); 
   
   // Return 
-  if(rc_consolidate != TILEDB_AR_OK || rc_finalize != TILEDB_SM_OK)
+  if(rc_consolidate != TILEDB_MT_OK || rc_finalize != TILEDB_SM_OK)
     return TILEDB_SM_ERR;
   else
     return TILEDB_SM_OK;

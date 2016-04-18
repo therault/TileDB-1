@@ -349,7 +349,7 @@ int Array::init(
     for(int i=0; i<attribute_num; ++i) {
       // Check attribute name length
       if(attributes[i] == NULL || strlen(attributes[i]) > TILEDB_NAME_MAX_LEN) {
-        PRINT_ERROR("Invalid attrubute name length");
+        PRINT_ERROR("Invalid attribute name length");
         return TILEDB_AR_ERR;
       }
       attributes_vec.push_back(attributes[i]);
