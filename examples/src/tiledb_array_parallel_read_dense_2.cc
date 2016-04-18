@@ -153,7 +153,7 @@ void parallel_read(
   // Count number of a1 values greater than 10
   *count = 0;
   int* a1 = (int*) buffers[0];
-  int num = buffer_sizes[0] / sizeof(size_t);
+  int num = buffer_sizes[0] / sizeof(int);
   for(int i=0; i<num; ++i)
     if(a1[i] > 10)
       ++(*count);
