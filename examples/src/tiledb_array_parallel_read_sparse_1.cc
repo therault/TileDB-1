@@ -133,7 +133,7 @@ void *parallel_read(void* args) {
   // Count number of a1 values greater than 10
   data->count = 0;
   int* a1 = (int*) data->buffers[0];
-  int num = data->buffer_sizes[0] / sizeof(size_t);
+  int num = data->buffer_sizes[0] / sizeof(int);
   for(int i=0; i<num; ++i)
     if(a1[i] > 5)
       ++data->count;
