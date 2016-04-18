@@ -828,9 +828,9 @@ int StorageManager::metadata_finalize(Metadata* metadata) {
 
   // Return
   if(rc_close != TILEDB_SM_OK || rc_finalize != TILEDB_MT_OK)
-    return TILEDB_SM_OK;
-  else
     return TILEDB_SM_ERR;
+  else
+    return TILEDB_SM_OK;
 }
 
 int StorageManager::metadata_iterator_init(
