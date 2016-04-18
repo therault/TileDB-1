@@ -117,12 +117,8 @@ int main() {
 
   // Output result
   int total_count = 0;
-  for(int i=0; i<4; ++i) {
-
-printf("%d\n", thread_data[i].count);
-
+  for(int i=0; i<4; ++i) 
     total_count += thread_data[i].count;
-  }
   printf("Number of a1 values greater than 10: %d \n", total_count);
 
   // Finalize context
