@@ -1591,7 +1591,7 @@ int StorageManager::metadata_move(
 }
 
 int StorageManager::mutex_destroy() {
-  int rc_omp_mtx = ::mutex_destroy(&open_array_omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; //::mutex_destroy(&open_array_omp_mtx_);
   int rc_pthread_mtx = ::mutex_destroy(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1601,7 +1601,7 @@ int StorageManager::mutex_destroy() {
 }
 
 int StorageManager::mutex_init() {
-  int rc_omp_mtx = ::mutex_init(&open_array_omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; // ::mutex_init(&open_array_omp_mtx_);
   int rc_pthread_mtx = ::mutex_init(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1611,7 +1611,7 @@ int StorageManager::mutex_init() {
 }
 
 int StorageManager::mutex_lock() {
-  int rc_omp_mtx = ::mutex_lock(&open_array_omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; // ::mutex_lock(&open_array_omp_mtx_);
   int rc_pthread_mtx = ::mutex_lock(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1621,7 +1621,7 @@ int StorageManager::mutex_lock() {
 }
 
 int StorageManager::mutex_unlock() {
-  int rc_omp_mtx = ::mutex_unlock(&open_array_omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; // ::mutex_unlock(&open_array_omp_mtx_);
   int rc_pthread_mtx = ::mutex_unlock(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1833,7 +1833,7 @@ int StorageManager::workspace_move(
 }
 
 int StorageManager::OpenArray::mutex_destroy() {
-  int rc_omp_mtx = ::mutex_destroy(&omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; // ::mutex_destroy(&omp_mtx_);
   int rc_pthread_mtx = ::mutex_destroy(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1843,7 +1843,7 @@ int StorageManager::OpenArray::mutex_destroy() {
 }
 
 int StorageManager::OpenArray::mutex_init() {
-  int rc_omp_mtx = ::mutex_init(&omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; // ::mutex_init(&omp_mtx_);
   int rc_pthread_mtx =  ::mutex_init(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1853,7 +1853,7 @@ int StorageManager::OpenArray::mutex_init() {
 }
 
 int StorageManager::OpenArray::mutex_lock() {
-  int rc_omp_mtx = ::mutex_lock(&omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; // ::mutex_lock(&omp_mtx_);
   int rc_pthread_mtx = ::mutex_lock(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1863,7 +1863,7 @@ int StorageManager::OpenArray::mutex_lock() {
 }
 
 int StorageManager::OpenArray::mutex_unlock() {
-  int rc_omp_mtx = ::mutex_unlock(&omp_mtx_);
+  int rc_omp_mtx = TILEDB_UT_OK; // ::mutex_unlock(&omp_mtx_);
   int rc_pthread_mtx = ::mutex_unlock(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
