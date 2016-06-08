@@ -902,6 +902,9 @@ int ArraySchema::deserialize(
   // Compute tile domain
   compute_tile_domain();
 
+  // Compute tile offsets
+  compute_tile_offsets();
+
   // Initialize Hilbert curve
   init_hilbert_curve();
 
@@ -952,6 +955,9 @@ int ArraySchema::init(const ArraySchemaC* array_schema_c) {
 
   // Compute tile domain
   compute_tile_domain();
+
+  // Compute tile offsets
+  compute_tile_offsets();
 
   // Initialize Hilbert curve
   init_hilbert_curve();
@@ -1526,6 +1532,22 @@ void ArraySchema::get_subarray_tile_domain(
 }
 
 template<class T>
+int64_t ArraySchema::get_tile_pos(const T* tile_coords) const {
+  // Sanity check
+  assert(tile_extents_);
+
+  // Invoke the proper function based on the tile order
+  if(tile_order_ == TILEDB_ROW_MAJOR) {
+    return get_tile_pos_row(tile_coords);
+  } else if(tile_order_ == TILEDB_COL_MAJOR) {
+    return get_tile_pos_col(tile_coords);
+  } else { // Sanity check 
+    assert(0);
+    return TILEDB_AS_ERR;
+  }
+}
+
+template<class T>
 int64_t ArraySchema::get_tile_pos(
     const T* domain,
     const T* tile_coords) const {
@@ -1609,7 +1631,7 @@ int64_t ArraySchema::tile_id(const T* cell_coords) const {
   for(int i=0; i<dim_num_; ++i)
     tile_coords[i] = (cell_coords[i] - domain[2*i]) / tile_extents[i]; 
 
-  int tile_id = get_tile_pos(domain, tile_coords);
+  int tile_id = get_tile_pos(tile_coords);
 
   // Clean up
   delete [] tile_coords;
@@ -1799,6 +1821,46 @@ void ArraySchema::compute_tile_domain() {
   }
 }
 
+void ArraySchema::compute_tile_offsets() {
+  // Invoke the proper templated function
+  if(types_[attribute_num_] == TILEDB_INT32) {
+    compute_tile_offsets<int>();
+  } else if(types_[attribute_num_] == TILEDB_INT64) {
+    compute_tile_offsets<int64_t>();
+  } else if(types_[attribute_num_] == TILEDB_FLOAT32) {
+    compute_tile_offsets<float>();
+  } else if(types_[attribute_num_] == TILEDB_FLOAT64) {
+    compute_tile_offsets<double>();
+  } else { // The program should never reach this point
+    assert(0);
+  }
+}
+
+template<class T>
+void ArraySchema::compute_tile_offsets() {
+  // For easy reference
+  const T* domain = static_cast<const T*>(domain_);
+  const T* tile_extents = static_cast<const T*>(tile_extents_);
+  int64_t tile_num; // Per dimension
+
+  // Calculate tile offsets for column-major tile order
+  tile_offsets_col_.push_back(1);
+  for(int i=1; i<dim_num_; ++i) {
+    tile_num = (domain[2*(i-1)+1] - 
+                domain[2*(i-1)] + 1) / tile_extents[i-1];
+    tile_offsets_col_.push_back(tile_offsets_col_.back() * tile_num);
+  }
+  
+  // Calculate tile offsets for row-major tile order
+  tile_offsets_row_.push_back(1);
+  for(int i=dim_num_-2; i>=0; --i) {
+    tile_num = (domain[2*(i+1)+1] - 
+                domain[2*(i+1)] + 1) / tile_extents[i+1];
+    tile_offsets_row_.push_back(tile_offsets_row_.back() * tile_num);
+  }
+  std::reverse(tile_offsets_row_.begin(), tile_offsets_row_.end());
+}
+
 size_t ArraySchema::compute_type_size(int i) const {
   // Sanity check
   assert(i>= 0 && i <= attribute_num_);
@@ -1954,6 +2016,20 @@ void ArraySchema::get_next_tile_coords_row(
   } 
 }
 
+void compute_tile_offsets() {
+}
+
+template<class T>
+int64_t ArraySchema::get_tile_pos_col(const T* tile_coords) const {
+  // Calculate position
+  int64_t pos = 0;
+  for(int i=0; i<dim_num_; ++i) 
+    pos += tile_coords[i] * tile_offsets_col_[i];
+
+  // Return
+  return pos;
+}
+
 template<class T>
 int64_t ArraySchema::get_tile_pos_col(
     const T* domain,
@@ -1975,6 +2051,17 @@ int64_t ArraySchema::get_tile_pos_col(
   int64_t pos = 0;
   for(int i=0; i<dim_num_; ++i) 
     pos += tile_coords[i] * tile_offsets[i];
+
+  // Return
+  return pos;
+}
+
+template<class T>
+int64_t ArraySchema::get_tile_pos_row(const T* tile_coords) const {
+  // Calculate position
+  int64_t pos = 0;
+  for(int i=0; i<dim_num_; ++i) 
+    pos += tile_coords[i] * tile_offsets_row_[i];
 
   // Return
   return pos;
