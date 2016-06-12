@@ -186,14 +186,14 @@ int ArrayReadState::compute_fragment_cell_pos_ranges(
   // For easy reference
   const ArraySchema* array_schema = array_->array_schema();
   int dim_num = array_schema->dim_num();
-  int fragment_i;
+  int fragment_id;
   int64_t fragment_cell_ranges_num = fragment_cell_ranges.size();
 
   // Compute fragment cell position ranges
   for(int64_t i=0; i<fragment_cell_ranges_num; ++i) { 
-    fragment_i = fragment_cell_ranges[i].first.first;
-    if(fragment_i == -1 ||
-       fragment_read_states_[fragment_i]->dense()) {  // DENSE
+    fragment_id = fragment_cell_ranges[i].first.first;
+    if(fragment_id == -1 ||
+       fragment_read_states_[fragment_id]->dense()) {  // DENSE
       // Create a new fragment cell position range
       FragmentCellPosRange fragment_cell_pos_range;
       fragment_cell_pos_range.first = fragment_cell_ranges[i].first;
@@ -384,20 +384,20 @@ int ArrayReadState::copy_cells(
   FragmentCellPosRanges& fragment_cell_pos_ranges = 
       fragment_cell_pos_ranges_vec_[pos];
   int64_t fragment_cell_pos_ranges_num = fragment_cell_pos_ranges.size();
-  int fragment_i; // Fragment id
-  int64_t tile_i; // Tile position in the fragment
+  int fragment_id; // Fragment id
+  int64_t tile_pos; // Tile position in the fragment
 
   // Sanity check
   assert(!array_schema->var_size(attribute_id));
 
   // Copy the cell ranges one by one
   for(int64_t i=0; i<fragment_cell_pos_ranges_num; ++i) {
-    fragment_i = fragment_cell_pos_ranges[i].first.first; 
-    tile_i = fragment_cell_pos_ranges[i].first.second; 
+    fragment_id = fragment_cell_pos_ranges[i].first.first; 
+    tile_pos = fragment_cell_pos_ranges[i].first.second; 
     CellPosRange& cell_pos_range = fragment_cell_pos_ranges[i].second; 
 
     // Handle empty fragment
-    if(fragment_i == -1) {
+    if(fragment_id == -1) {
       copy_cells_with_empty<T>(
            attribute_id,
            buffer,
@@ -411,9 +411,9 @@ int ArrayReadState::copy_cells(
     }
 
     // Handle non-empty fragment
-    if(fragment_read_states_[fragment_i]->copy_cells(
+    if(fragment_read_states_[fragment_id]->copy_cells(
            attribute_id,
-           tile_i,
+           tile_pos,
            buffer,
            buffer_size,
            buffer_offset,
@@ -421,7 +421,7 @@ int ArrayReadState::copy_cells(
        return TILEDB_ARS_ERR;
 
      // Handle overflow
-     if(fragment_read_states_[fragment_i]->overflow(attribute_id)) {
+     if(fragment_read_states_[fragment_id]->overflow(attribute_id)) {
        overflow_[attribute_id] = true;
        break;
      }
@@ -454,20 +454,20 @@ int ArrayReadState::copy_cells_var(
   FragmentCellPosRanges& fragment_cell_pos_ranges = 
       fragment_cell_pos_ranges_vec_[pos];
   int64_t fragment_cell_pos_ranges_num = fragment_cell_pos_ranges.size();
-  int fragment_i; // Fragment id
-  int64_t tile_i; // Tile position in the fragment
+  int fragment_id; // Fragment id
+  int64_t tile_pos; // Tile position in the fragment
 
   // Sanity check
   assert(array_schema->var_size(attribute_id));
 
   // Copy the cell ranges one by one
   for(int64_t i=0; i<fragment_cell_pos_ranges_num; ++i) {
-    tile_i = fragment_cell_pos_ranges[i].first.second; 
-    fragment_i = fragment_cell_pos_ranges[i].first.first; 
+    tile_pos = fragment_cell_pos_ranges[i].first.second; 
+    fragment_id = fragment_cell_pos_ranges[i].first.first; 
     CellPosRange& cell_pos_range = fragment_cell_pos_ranges[i].second; 
 
     // Handle empty fragment
-    if(fragment_i == -1) {
+    if(fragment_id == -1) {
       copy_cells_with_empty_var<T>(
            attribute_id,
            buffer,
@@ -484,9 +484,9 @@ int ArrayReadState::copy_cells_var(
     }
 
     // Handle non-empty fragment
-    if(fragment_read_states_[fragment_i]->copy_cells_var(
+    if(fragment_read_states_[fragment_id]->copy_cells_var(
            attribute_id,
-           tile_i,
+           tile_pos,
            buffer,
            buffer_size,
            buffer_offset,
@@ -497,7 +497,7 @@ int ArrayReadState::copy_cells_var(
        return TILEDB_ARS_ERR;
 
      // Handle overflow
-     if(fragment_read_states_[fragment_i]->overflow(attribute_id)) {
+     if(fragment_read_states_[fragment_id]->overflow(attribute_id)) {
        overflow_[attribute_id] = true;
        break;
      }
@@ -1472,7 +1472,6 @@ int ArrayReadState::sort_fragment_cell_ranges(
   // For easy reference
   const ArraySchema* array_schema = array_->array_schema();
   int dim_num = array_schema->dim_num();
-  size_t coords_size = array_schema->coords_size();
   const T* domain = static_cast<const T*>(array_schema->domain());
   const T* tile_extents = static_cast<const T*>(array_schema->tile_extents());
   const T* tile_coords = static_cast<const T*>(subarray_tile_coords_);
@@ -1491,183 +1490,100 @@ int ArrayReadState::sort_fragment_cell_ranges(
 
   // Populate queue
   std::priority_queue<
-      FragmentCellRange,
-      FragmentCellRanges,
-      SmallerFragmentCellRange<T> > pq(array_schema);
+      PQFragmentCellRange<T>,
+      std::vector<PQFragmentCellRange<T> >,
+      SmallerPQFragmentCellRange<T> > pq(array_schema);
   int unsorted_fragment_cell_ranges_num = unsorted_fragment_cell_ranges.size();
-  for(int64_t i=0; i<unsorted_fragment_cell_ranges_num; ++i)  
-    pq.push(unsorted_fragment_cell_ranges[i]);
+  PQFragmentCellRange<T> pq_fragment_cell_range(
+      array_schema,
+      &fragment_read_states_);
+  for(int64_t i=0; i<unsorted_fragment_cell_ranges_num; ++i) { 
+    pq_fragment_cell_range.import_from(unsorted_fragment_cell_ranges[i]);
+    pq.push(pq_fragment_cell_range);
+  }
   unsorted_fragment_cell_ranges.clear();
   
+  // Initializations
+  PQFragmentCellRange<T> popped(array_schema, &fragment_read_states_);
+  PQFragmentCellRange<T> top(array_schema, &fragment_read_states_);
+  PQFragmentCellRange<T> trimmed_top(array_schema, &fragment_read_states_);
+  PQFragmentCellRange<T> extra_popped(array_schema, &fragment_read_states_);
+  PQFragmentCellRange<T> left(array_schema, &fragment_read_states_);
+  PQFragmentCellRange<T> unary(array_schema, &fragment_read_states_);
+  FragmentCellRange result;
+
   // Start processing the queue
-  FragmentCellRange popped, top;
-  int popped_fragment_i, top_fragment_i, popped_tile_i, top_tile_i;
-  T *popped_range, *top_range;
   while(!pq.empty()) {
     // Pop the first entry and mark it as popped
     popped = pq.top();
-    popped_fragment_i = popped.first.first;
-    popped_tile_i = popped.first.second;
-    popped_range = static_cast<T*>(popped.second);
     pq.pop();
 
     // Last range - just insert it into the results and stop
     if(pq.empty()) {
-      fragment_cell_ranges.push_back(popped);
+      popped.export_to(result); 
+      fragment_cell_ranges.push_back(result);
       break;
     }
 
     // Mark the second entry (now top) as top
     top = pq.top();
-    top_fragment_i = top.first.first;
-    top_tile_i = top.first.second;
-    top_range = static_cast<T*>(top.second);
 
     // Dinstinguish two cases
-    if(popped_fragment_i == -1 ||                       // DENSE OR UNARY POPPED
-       fragment_read_states_[popped_fragment_i]->dense() ||
-       !memcmp(popped_range, &popped_range[dim_num], coords_size)) { 
-      // Keep on discarding ranges from the queue
-      while(!pq.empty() &&
-            top_fragment_i < popped_fragment_i &&
-            array_schema->tile_cell_order_cmp(top_range, popped_range) >= 0 &&
-            array_schema->tile_cell_order_cmp(
-                top_range, 
-                &popped_range[dim_num]) <= 0) {
+    if(popped.dense() || popped.unary()) { // DENSE OR UNARY POPPED
+      // Keep on trimming ranges from the queue
+      while(!pq.empty() && popped.must_trim(top)) {
         // Cut the top range and re-insert, only if there is partial overlap
-        if(array_schema->tile_cell_order_cmp(
-               &top_range[dim_num], 
-               &popped_range[dim_num]) > 0) {
+        if(top.ends_after(popped)) {
           // Create the new trimmed top range
-          FragmentCellRange trimmed_top;
-          trimmed_top.first = FragmentInfo(top_fragment_i, top_tile_i);
-          trimmed_top.second = malloc(2*coords_size);
-          T* trimmed_top_range = static_cast<T*>(trimmed_top.second);
-          memcpy(trimmed_top_range, &popped_range[dim_num], coords_size);
-          memcpy(&trimmed_top_range[dim_num], &top_range[dim_num], coords_size);
-          if(fragment_read_states_[top_fragment_i]->dense()) {
-            array_schema->get_next_cell_coords<T>( // TOP IS DENSE
-                tile_domain, 
-                trimmed_top_range);
+          popped.trim(top, trimmed_top, tile_domain);
+
+          // Re-insert the trimmed range in pq, or discard it
+          if(trimmed_top.cell_range_ != NULL) 
             pq.push(trimmed_top);
-          } else {                                 // TOP IS SPARSE
-            bool coords_retrieved;
-            if(fragment_read_states_[top_fragment_i]->get_coords_after(
-                   &popped_range[dim_num], 
-                   trimmed_top_range,
-                   coords_retrieved)) {
-              free(trimmed_top_range);
-              free(top_range);
-              free(popped_range);
-              return TILEDB_ARS_ERR;
-            }
-            if(coords_retrieved)
-              pq.push(trimmed_top);
-            else
-              free(trimmed_top_range);
-          }
         } 
 
         // Discard top and get a new one
-        free(top.second);
+        free(top.cell_range_);
         pq.pop();
         top = pq.top();
-        top_fragment_i = top.first.first;
-        top_tile_i = top.first.second;
-        top_range = static_cast<T*>(top.second);
       }
 
-      // Potentially trim the popped range
-      if(!pq.empty() && 
-         top_fragment_i > popped_fragment_i && 
-         array_schema->tile_cell_order_cmp(
-             top_range, 
-             &popped_range[dim_num]) <= 0) {         
-        // Create a new popped range
-        FragmentCellRange extra_popped;
-        extra_popped.first.first = popped_fragment_i;
-        extra_popped.first.second = popped_tile_i;
-        extra_popped.second = malloc(2*coords_size);
-        T* extra_popped_range = static_cast<T*>(extra_popped.second);
-
-        memcpy(extra_popped_range, top_range, coords_size);
-        memcpy(
-            &extra_popped_range[dim_num], 
-            &popped_range[dim_num], 
-            coords_size);
-
+      // Potentially split the popped range
+      if(!pq.empty() && popped.must_be_split(top)) {
+        // Split the popped range
+        popped.split(top, extra_popped, tile_domain);
+        
         // Re-instert the extra popped range into the queue
         pq.push(extra_popped);
-
-        // Trim last range coordinates of popped
-        memcpy(&popped_range[dim_num], top_range, coords_size);
-
-        // Get previous cell of the last range coordinates of popped
-        array_schema->get_previous_cell_coords<T>(
-            tile_domain, 
-            &popped_range[dim_num]);
-      }  
+      } 
      
       // Insert the final popped range into the results
-      fragment_cell_ranges.push_back(popped);
+      popped.export_to(result);
+      fragment_cell_ranges.push_back(result);
     } else {                               // SPARSE POPPED
       // If popped does not overlap with top, insert popped into results
-      if(!pq.empty() && 
-         array_schema->tile_cell_order_cmp(
-             top_range,
-             &popped_range[dim_num]) > 0) {
-        fragment_cell_ranges.push_back(popped);
+      if(!pq.empty() && top.begins_after(popped)) {
+        popped.export_to(result);
+        fragment_cell_ranges.push_back(result);
       } else {
-        // Create up to 3 more ranges (left, new popped/right, unary)
-        FragmentCellRange left;
-        left.first.first = popped_fragment_i;
-        left.first.second = popped_tile_i;
-        left.second = malloc(2*coords_size);
-        memcpy(left.second, popped_range, coords_size);
-        T* left_range = static_cast<T*>(left.second);
-        
-        // Get the first two coordinates from the coordinates tile 
-        bool left_retrieved, right_retrieved, target_exists;
-        if(fragment_read_states_[popped_fragment_i]->get_enclosing_coords<T>(
-               popped_tile_i,          // Tile
-               top_range,              // Target coords
-               popped_range,           // Start coords
-               &popped_range[dim_num], // End coords
-               &left_range[dim_num],   // Left coords
-               popped_range,           // Right coords
-               left_retrieved,         // Left retrieved 
-               right_retrieved,        // Right retrieved 
-               target_exists)          // Target exists
-            != TILEDB_RS_OK) {  
-          free(left.second);
-          free(popped.second);
-          rc = TILEDB_ARS_ERR;
-          break;
+
+        // Create up to 3 more ranges (left, unary, new popped/right)
+        popped.split_to_3(top, left, unary);
+
+        // Insert left to results or discard it
+        if(left.cell_range_ != NULL) {
+          left.export_to(result);
+          fragment_cell_ranges.push_back(result);
         }
 
-        // Insert left range to the result
-        if(left_retrieved) 
-          fragment_cell_ranges.push_back(left);
-        else 
-          free(left.second);
+        // Insert unary to the priority queue 
+        if(unary.cell_range_ != NULL)  {
+          pq.push(unary); 
+ }
 
-        // Re-insert right range to the priority queue
-        if(right_retrieved)
+        // Re-insert new popped (right) range to the priority queue
+        if(popped.cell_range_ != NULL) 
           pq.push(popped);
-        else
-          free(popped.second);
-        
-        // Re-Insert unary range into the priority queue
-        if(target_exists) {
-          FragmentCellRange unary;
-          unary.first.first = popped_fragment_i;
-          unary.first.second = popped_tile_i;
-          unary.second = malloc(2*coords_size);
-          T* unary_range = static_cast<T*>(unary.second);
-          memcpy(unary_range, top_range, coords_size); 
-          memcpy(&unary_range[dim_num], top_range, coords_size); 
-          pq.push(unary);
-        }
       }
     }
   }
@@ -1679,7 +1595,7 @@ int ArrayReadState::sort_fragment_cell_ranges(
   // Clean up in case of error
   if(rc != TILEDB_ARS_OK) {
     while(!pq.empty()) {
-      free(pq.top().second);
+      free(pq.top().cell_range_);
       pq.pop();
     }
     for(int64_t i=0; i<int64_t(fragment_cell_ranges.size()); ++i)
@@ -1697,45 +1613,280 @@ int ArrayReadState::sort_fragment_cell_ranges(
 
 
 template<class T>
-ArrayReadState::SmallerFragmentCellRange<T>::SmallerFragmentCellRange()
-    : array_schema_(NULL) { 
+ArrayReadState::PQFragmentCellRange<T>::PQFragmentCellRange(
+    const ArraySchema* array_schema,
+    const std::vector<ReadState*>* fragment_read_states) {
+  array_schema_ = array_schema;
+  fragment_read_states_ = fragment_read_states;
+
+  cell_range_ = NULL;
+  fragment_id_ = -1;
+  tile_id_l_ = -1;
+  tile_id_r_ = -1;
+  tile_pos_ = -1;
+
+  coords_size_ = array_schema_->coords_size();
+  dim_num_ = array_schema_->dim_num();
 }
 
 template<class T>
-ArrayReadState::SmallerFragmentCellRange<T>::SmallerFragmentCellRange(
-    const ArraySchema* array_schema)
-    : array_schema_(array_schema) { 
+bool ArrayReadState::PQFragmentCellRange<T>::begins_after(
+    const PQFragmentCellRange& fcr) const {
+  return tile_id_l_ > fcr.tile_id_r_ ||
+         (tile_id_l_ == fcr.tile_id_r_ &&
+          array_schema_->cell_order_cmp(
+              cell_range_,
+              &(fcr.cell_range_[dim_num_])) > 0);
 }
 
 template<class T>
-bool ArrayReadState::SmallerFragmentCellRange<T>::operator () (
-    FragmentCellRange a, 
-    FragmentCellRange b) const {
+bool ArrayReadState::PQFragmentCellRange<T>::dense() const {
+  return fragment_id_ == -1 || (*fragment_read_states_)[fragment_id_]->dense();
+}
+
+template<class T>
+bool ArrayReadState::PQFragmentCellRange<T>::ends_after(
+    const PQFragmentCellRange& fcr) const {
+  return tile_id_r_ > fcr.tile_id_r_ ||
+         (tile_id_r_ == fcr.tile_id_r_ && 
+          array_schema_->cell_order_cmp(
+               &cell_range_[dim_num_],
+               &fcr.cell_range_[dim_num_]) > 0);
+}
+
+template<class T>
+void ArrayReadState::PQFragmentCellRange<T>::export_to(
+    FragmentCellRange& fragment_cell_range) {
+  // Copy members
+  fragment_cell_range.second = cell_range_;
+  fragment_cell_range.first.first = fragment_id_;
+  fragment_cell_range.first.second = tile_pos_;
+}
+
+template<class T>
+void ArrayReadState::PQFragmentCellRange<T>::import_from(
+    const FragmentCellRange& fragment_cell_range) {
+  // Copy members
+  cell_range_ = static_cast<T*>(fragment_cell_range.second);
+  fragment_id_ = fragment_cell_range.first.first;
+  tile_pos_ = fragment_cell_range.first.second;
+  
+  // Compute tile ids
+  tile_id_l_ = array_schema_->tile_id<T>(cell_range_);
+  tile_id_r_ = array_schema_->tile_id<T>(&cell_range_[dim_num_]);
+}
+
+template<class T>
+bool ArrayReadState::PQFragmentCellRange<T>::must_be_split(
+    const PQFragmentCellRange& fcr) const {
+  return fcr.fragment_id_ > fragment_id_ &&
+         (fcr.tile_id_l_ < tile_id_r_ ||
+          (fcr.tile_id_l_ == tile_id_r_ &&
+           array_schema_->cell_order_cmp(
+               fcr.cell_range_, 
+               &cell_range_[dim_num_]) <= 0));        
+}
+
+template<class T>
+bool ArrayReadState::PQFragmentCellRange<T>::must_trim(
+    const PQFragmentCellRange& fcr) const {
+  return fcr.fragment_id_ < fragment_id_ &&
+         (fcr.tile_id_l_ > tile_id_l_ ||
+          (fcr.tile_id_l_ == tile_id_l_ &&
+          array_schema_->cell_order_cmp(fcr.cell_range_, cell_range_) >= 0)) &&
+         (fcr.tile_id_l_ < tile_id_r_ ||
+          (fcr.tile_id_l_ == tile_id_r_ &&
+           array_schema_->cell_order_cmp(
+               fcr.cell_range_, 
+               &cell_range_[dim_num_]) <= 0));
+}
+
+template<class T>
+void ArrayReadState::PQFragmentCellRange<T>::split(
+    const PQFragmentCellRange& fcr,
+    PQFragmentCellRange& fcr_new,
+    const T* tile_domain) {
+  // Create the new range
+  fcr_new.fragment_id_ = fragment_id_;
+  fcr_new.tile_pos_ = tile_pos_;
+  fcr_new.cell_range_ = (T*) malloc(2*coords_size_);
+  fcr_new.tile_id_l_ = fcr.tile_id_l_;
+  memcpy(
+      fcr_new.cell_range_, 
+      fcr.cell_range_, 
+      coords_size_);
+  fcr_new.tile_id_r_ = tile_id_r_;
+  memcpy(
+      &(fcr_new.cell_range_[dim_num_]), 
+      &cell_range_[dim_num_], 
+      coords_size_);
+
+  // Trim the calling object range
+  memcpy(&cell_range_[dim_num_], fcr.cell_range_, coords_size_);
+  array_schema_->get_previous_cell_coords<T>(
+      tile_domain, 
+      &cell_range_[dim_num_]);
+  tile_id_r_ = array_schema_->tile_id<T>(&cell_range_[dim_num_]);
+}
+
+template<class T>
+void ArrayReadState::PQFragmentCellRange<T>::split_to_3(
+    const PQFragmentCellRange& fcr,
+    PQFragmentCellRange& fcr_left,
+    PQFragmentCellRange& fcr_unary) {
+  // Initialize fcr_left
+  fcr_left.fragment_id_ = fragment_id_;
+  fcr_left.tile_pos_ = tile_pos_;
+  fcr_left.cell_range_ = (T*) malloc(2*coords_size_);
+  fcr_left.tile_id_l_ = tile_id_l_;
+  memcpy(fcr_left.cell_range_, cell_range_, coords_size_);
+
+  // Get enclosing coordinates
+  bool left_retrieved, right_retrieved, target_exists;
+  int rc = (*fragment_read_states_)[fragment_id_]->get_enclosing_coords<T>(
+                tile_pos_,                        // Tile
+                fcr.cell_range_,                  // Target coords
+                cell_range_,                      // Start coords
+                &cell_range_[dim_num_],           // End coords
+                &fcr_left.cell_range_[dim_num_],  // Left coords
+                cell_range_,                      // Right coords
+                left_retrieved,                   // Left retrieved 
+                right_retrieved,                  // Right retrieved 
+                target_exists);                   // Target exists
+  assert(rc == TILEDB_RS_OK);
+   
+  // Clean up if necessary
+  if(left_retrieved) { 
+    fcr_left.tile_id_r_ = 
+        array_schema_->tile_id<T>(&fcr_left.cell_range_[dim_num_]);
+  } else {
+    free(fcr_left.cell_range_);
+    fcr_left.cell_range_ = NULL;
+  }
+
+  if(right_retrieved) {
+    tile_id_l_ = array_schema_->tile_id<T>(cell_range_);
+  } else {
+    free(cell_range_);
+    cell_range_ = NULL;
+  }
+
+  // Create unary range
+  if(target_exists) {
+    fcr_unary.fragment_id_ = fragment_id_;
+    fcr_unary.tile_pos_ = tile_pos_;
+    fcr_unary.cell_range_ = (T*) malloc(2*coords_size_);
+    fcr_unary.tile_id_l_ = fcr.tile_id_l_;
+    memcpy(fcr_unary.cell_range_, fcr.cell_range_, coords_size_); 
+    fcr_unary.tile_id_r_ = fcr.tile_id_l_;
+    memcpy(&(fcr_unary.cell_range_[dim_num_]), fcr.cell_range_, coords_size_); 
+  } else {
+    fcr_unary.cell_range_ = NULL;
+  } 
+}
+
+
+template<class T>
+void ArrayReadState::PQFragmentCellRange<T>::trim(
+    const PQFragmentCellRange& fcr,
+    PQFragmentCellRange& fcr_trimmed,
+    const T* tile_domain) const {
+  // Construct trimmed range
+  fcr_trimmed.fragment_id_ = fcr.fragment_id_;
+  fcr_trimmed.tile_pos_ = fcr.tile_pos_;
+  fcr_trimmed.cell_range_ = (T*) malloc(2*coords_size_);
+  memcpy(fcr_trimmed.cell_range_, &cell_range_[dim_num_], coords_size_);
+  fcr_trimmed.tile_id_l_ = tile_id_r_;
+  memcpy(
+      &(fcr_trimmed.cell_range_[dim_num_]), 
+      &(fcr.cell_range_[dim_num_]), 
+      coords_size_);
+  fcr_trimmed.tile_id_r_ = fcr.tile_id_r_;
+
+  // Advance the left endpoint of the trimmed range
+  bool coords_retrieved;
+  if(fcr_trimmed.dense()) {
+    array_schema_->get_next_cell_coords<T>( // fcr is DENSE
+        tile_domain, 
+        fcr_trimmed.cell_range_,
+        coords_retrieved);
+  } else {                                  // fcr is SPARSE
+    int rc = (*fragment_read_states_)[fcr.fragment_id_]->get_coords_after(
+                 &(cell_range_[dim_num_]), 
+                 fcr_trimmed.cell_range_,
+                 coords_retrieved);
+    assert(rc == TILEDB_RS_OK);
+  }
+
+  if(!coords_retrieved) {
+    free(fcr_trimmed.cell_range_);
+    fcr_trimmed.cell_range_ = NULL;
+  }
+}
+
+template<class T>
+bool ArrayReadState::PQFragmentCellRange<T>::unary() const {
+  return !memcmp(cell_range_, &cell_range_[dim_num_], coords_size_);
+}
+
+
+
+
+template<class T>
+ArrayReadState::SmallerPQFragmentCellRange<T>::SmallerPQFragmentCellRange() {
+  array_schema_ = NULL;
+}
+
+template<class T>
+ArrayReadState::SmallerPQFragmentCellRange<T>::SmallerPQFragmentCellRange(
+    const ArraySchema* array_schema) {
+  array_schema_ = array_schema; 
+}
+
+template<class T>
+bool ArrayReadState::SmallerPQFragmentCellRange<T>::operator () (
+    PQFragmentCellRange<T> a, 
+    PQFragmentCellRange<T> b) const {
   // Sanity check
   assert(array_schema_ != NULL);
 
+  // First check the tile ids
+  if(a.tile_id_l_ < b.tile_id_l_)
+    return false;
+  else if(a.tile_id_l_ > b.tile_id_l_)
+    return true;
+  // else, check the coordinates
+
   // Get cell ordering information for the first range endpoints
-  int cmp = array_schema_->tile_cell_order_cmp<T>(
-      static_cast<const T*>(a.second), 
-      static_cast<const T*>(b.second)); 
+  int cmp = array_schema_->cell_order_cmp<T>(
+                a.cell_range_, 
+                b.cell_range_); 
 
   if(cmp < 0) {        // a's range start precedes b's
     return false;
   } else if(cmp > 0) { // b's range start preceded a's
     return true;
   } else {             // a's and b's range starts match - latest fragment wins
-    if(a.first.first < b.first.first)
+    if(a.fragment_id_ < b.fragment_id_)
       return true;
-    else if(a.first.first > b.first.first)
+    else if(a.fragment_id_ > b.fragment_id_)
       return false;
     else
-      return (a.first.second > b.first.second); 
+      assert(0); // This should never happen (equal coordinates and fragment id)
   }
 }
 
+
+
+
 // Explicit template instantiations
-template class ArrayReadState::SmallerFragmentCellRange<int>;
-template class ArrayReadState::SmallerFragmentCellRange<int64_t>;
-template class ArrayReadState::SmallerFragmentCellRange<float>;
-template class ArrayReadState::SmallerFragmentCellRange<double>;
+template class ArrayReadState::PQFragmentCellRange<int>;
+template class ArrayReadState::PQFragmentCellRange<int64_t>;
+template class ArrayReadState::PQFragmentCellRange<float>;
+template class ArrayReadState::PQFragmentCellRange<double>;
+
+template class ArrayReadState::SmallerPQFragmentCellRange<int>;
+template class ArrayReadState::SmallerPQFragmentCellRange<int64_t>;
+template class ArrayReadState::SmallerPQFragmentCellRange<float>;
+template class ArrayReadState::SmallerPQFragmentCellRange<double>;
 

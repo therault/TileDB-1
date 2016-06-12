@@ -1458,15 +1458,16 @@ int64_t ArraySchema::get_cell_pos(const T* coords) const {
 template<class T>
 void ArraySchema::get_next_cell_coords(
     const T* domain,
-    T* cell_coords) const {
+    T* cell_coords,
+    bool& coords_retrieved) const {
   // Sanity check
   assert(dense_);
 
   // Invoke the proper function based on the tile order
   if(cell_order_ == TILEDB_ROW_MAJOR)
-    get_next_cell_coords_row(domain, cell_coords);
+    get_next_cell_coords_row(domain, cell_coords, coords_retrieved);
   else if(cell_order_ == TILEDB_COL_MAJOR)
-    get_next_cell_coords_col(domain, cell_coords);
+    get_next_cell_coords_col(domain, cell_coords, coords_retrieved);
   else  // Sanity check
     assert(0);
 }
@@ -1838,6 +1839,10 @@ void ArraySchema::compute_tile_offsets() {
 
 template<class T>
 void ArraySchema::compute_tile_offsets() {
+  // Applicable only to dense arrays
+  if(!dense_)
+    return;
+
   // For easy reference
   const T* domain = static_cast<const T*>(domain_);
   const T* tile_extents = static_cast<const T*>(tile_extents_);
@@ -1941,7 +1946,8 @@ int64_t ArraySchema::get_cell_pos_row(const T* coords) const {
 template<class T>
 void ArraySchema::get_next_cell_coords_col(
     const T* domain,
-    T* cell_coords) const {
+    T* cell_coords,
+    bool& coords_retrieved) const {
   int i = 0;
   ++cell_coords[i];
 
@@ -1949,12 +1955,18 @@ void ArraySchema::get_next_cell_coords_col(
     cell_coords[i] = domain[2*i];
     ++cell_coords[++i];
   } 
+
+  if(i == dim_num_-1 && cell_coords[i] > domain[2*i+1])
+    coords_retrieved = false;
+  else
+    coords_retrieved = true; 
 }
 
 template<class T>
 void ArraySchema::get_next_cell_coords_row(
     const T* domain,
-    T* cell_coords) const {
+    T* cell_coords,
+    bool& coords_retrieved) const {
   int i = dim_num_-1;
   ++cell_coords[i];
 
@@ -1962,6 +1974,11 @@ void ArraySchema::get_next_cell_coords_row(
     cell_coords[i] = domain[2*i];
     ++cell_coords[--i];
   } 
+
+  if(i == 0 && cell_coords[i] > domain[2*i+1])
+    coords_retrieved = false;
+  else
+    coords_retrieved = true; 
 }
 
 template<class T>
@@ -2146,16 +2163,20 @@ template int64_t ArraySchema::get_cell_pos<double>(
 
 template void ArraySchema::get_next_cell_coords<int>(
     const int* domain,
-    int* cell_coords) const;
+    int* cell_coords,
+    bool& coords_retrieved) const;
 template void ArraySchema::get_next_cell_coords<int64_t>(
     const int64_t* domain,
-    int64_t* cell_coords) const;
+    int64_t* cell_coords,
+    bool& coords_retrieved) const;
 template void ArraySchema::get_next_cell_coords<float>(
     const float* domain,
-    float* cell_coords) const;
+    float* cell_coords,
+    bool& coords_retrieved) const;
 template void ArraySchema::get_next_cell_coords<double>(
     const double* domain,
-    double* cell_coords) const;
+    double* cell_coords,
+    bool& coords_retrieved) const;
 
 template void ArraySchema::get_next_tile_coords<int>(
     const int* domain,

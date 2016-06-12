@@ -70,11 +70,17 @@ class ArrayReadState {
   /* ********************************* */
 
   /** 
-   * Wrapper of comparison function in the priority queue of the fragment cell 
-   * position ranges. 
+   * Class of fragment cell range objects used in the priority queue algorithm. 
    */
   template<class T>
-  class SmallerFragmentCellRange;
+  class PQFragmentCellRange;
+
+  /** 
+   * Wrapper of comparison function in the priority queue of the fragment cell 
+   * ranges. 
+   */
+  template<class T>
+  class SmallerPQFragmentCellRange;
 
   /** A cell position pair [first, second]. */
   typedef std::pair<int64_t, int64_t> CellPosRange;
@@ -356,13 +362,20 @@ class ArrayReadState {
       size_t& buffer_var_offset,
       const CellPosRange& cell_pos_range);
 
-  // TODO
+  /**
+   * Gets the next fragment cell ranges that are relevant in the current read
+   * round, focusing on the dense case.
+   *
+   * @template T The coordinates type.
+   * @return TILEDB_ARS_OK on success and TILEDB_ARS_ERR on error.
+   */
+
   template<class T>
   int get_next_fragment_cell_ranges_dense();
 
   /**
    * Gets the next fragment cell ranges that are relevant in the current read
-   * round.
+   * round, focusing on the sparse case.
    *
    * @template T The coordinates type.
    * @return TILEDB_ARS_OK on success and TILEDB_ARS_ERR on error.
@@ -584,25 +597,131 @@ class ArrayReadState {
 
 
 /** 
- * Wrapper of comparison function in the priority queue of the fragment cell 
- * position ranges. 
+ * Class of fragment cell range objects used in the priority queue algorithm. 
  */
 template<class T>
-class ArrayReadState::SmallerFragmentCellRange {
+class ArrayReadState::PQFragmentCellRange {
+ public:
+   /** 
+    * Constructor. 
+    *
+    * @param array_schema The schema of the array.
+    * @param fragment_read_states The read states of all fragments in the array.
+    */
+   PQFragmentCellRange(
+       const ArraySchema* array_schema,
+       const std::vector<ReadState*>* fragment_read_states);
+
+   /** Returns true if the fragment the range belongs to is dense. */
+   bool dense() const;
+
+   /** 
+    * Returns true if the calling object begins after the end of the input
+    * range. 
+    */
+   bool begins_after(const PQFragmentCellRange& fcr) const;
+
+   /** Returns true if the calling object ends after the input range. */
+   bool ends_after(const PQFragmentCellRange& fcr) const;
+
+   /** Exports information to a fragment cell range. */
+   void export_to(FragmentCellRange& fragment_cell_range);
+
+   /** Imports information from a fragment cell range. */
+   void import_from(const FragmentCellRange& fragment_cell_range);
+
+   /**
+    * Returns true if the calling object range must be split by the input
+    * range.
+    */
+   bool must_be_split(const PQFragmentCellRange& fcr) const;
+
+   /**
+    * Returns true if the input range must be trimmed by the callling object.
+    */
+   bool must_trim(const PQFragmentCellRange& fcr) const;
+
+   /**
+    * Splits the calling object into two ranges based on the first input. The
+    * first range will replace the calling object. The second range will be
+    * stored in the second input. The third input is necessary for the 
+    * splitting. 
+    */
+   void split(
+       const PQFragmentCellRange& fcr, 
+       PQFragmentCellRange& fcr_new,
+       const T* tile_domain);
+
+   /**
+    * Splits the calling object into three ranges based on the input fcr. 
+    *    - First range: Non-overlapping part of calling object range, stored
+    *      at fcr_left.
+    *    - Second range: A unary range at the left end point of the
+    *      first input, stored at fcr_unary. Note that this may not exist.
+    *    - Third range: The updated calling object range, which is trimmed to
+    *      start after the unary range. 
+    */
+   void split_to_3(
+       const PQFragmentCellRange& fcr, 
+       PQFragmentCellRange& fcr_left,
+       PQFragmentCellRange& fcr_unary);
+
+   /** 
+    * Trims the first input range to the non-overlapping range stored in
+    * the second input range. If the cell range of fcr_trimmed is NULL,
+    * then fcr_trimmed is empty. The third input is necessary for the 
+    * trimming.
+    */
+   void trim(
+       const PQFragmentCellRange& fcr,
+       PQFragmentCellRange& fcr_trimmed,
+       const T* tile_domain) const;
+
+   /** Returns true if the range is unary. */
+   bool unary() const;
+
+   /** The cell range as a pair of coordinates. */ 
+   T* cell_range_;
+   /** The fragment id. */
+   int fragment_id_;
+   /** The tile id of the left endpoint of the cell range. */
+   int64_t tile_id_l_;
+   /** The tile id of the right endpoint of the cell range. */
+   int64_t tile_id_r_;
+   /** The position on disk of the tile corresponding to the cell range. */
+   int64_t tile_pos_;
+
+ private:
+   /** The array schema. */
+   const ArraySchema* array_schema_;
+   /** Size of coordinates. */
+   size_t coords_size_;
+   /** Dimension number. */
+   int dim_num_;
+   /** Stores the read state of each fragment in the array. */
+   const std::vector<ReadState*>* fragment_read_states_;
+};
+
+/** 
+ * Wrapper of comparison function in the priority queue of the fragment cell 
+ * ranges. 
+ */
+template<class T>
+class ArrayReadState::SmallerPQFragmentCellRange {
  public:
   /** Constructor. */
-  SmallerFragmentCellRange();
+  SmallerPQFragmentCellRange();
 
   /** Constructor. */
-  SmallerFragmentCellRange(const ArraySchema* array_schema);
+  SmallerPQFragmentCellRange(const ArraySchema* array_schema);
 
   /** 
-   * Comparison operator. First the smallest start range endpoint wins,
-   * then the largest fragment id.
+   * Comparison operator. First the smallest tile id of the left range end point
+   * wins, then the smallest start range endpoint, then the largest fragment id.
    */
   bool operator () (
-      FragmentCellRange a, 
-      FragmentCellRange b) const;
+      PQFragmentCellRange<T> a, 
+      PQFragmentCellRange<T> b) const;
 
  private:
   /** The array schema. */

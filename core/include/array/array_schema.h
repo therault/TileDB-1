@@ -452,10 +452,15 @@ class ArraySchema {
    * @param domain The targeted domain.
    * @param cell_coords The input cell coordinates, which the function modifies
    *     to store the next coordinates at termination.
+   * @param coords_retrieved Will store true if the retrieved coordinates are
+   *     inside the domain, and false otherwise.
    * @return void
    */
   template<class T> 
-  void get_next_cell_coords(const T* domain, T* cell_coords) const;
+  void get_next_cell_coords(
+      const T* domain, 
+      T* cell_coords, 
+      bool& coords_retrieved) const;
 
   /**
    * Retrieves the next tile coordinates along the array tile order within a
@@ -813,10 +818,15 @@ class ArraySchema {
    * @param domain The targeted domain.
    * @param cell_coords The input cell coordinates, which the function modifies
    *     to store the next coordinates at termination.
+   * @param coords_retrieved Will store true if the retrieved coordinates are
+   *     inside the domain, and false otherwise.
    * @return void
    */
   template<class T> 
-  void get_next_cell_coords_col(const T* domain, T* cell_coords) const;
+  void get_next_cell_coords_col(
+      const T* domain, 
+      T* cell_coords, 
+      bool& coords_retrieved) const;
 
   /**
    * Retrieves the next coordinates along the array cell order within a given
@@ -828,10 +838,15 @@ class ArraySchema {
    * @param domain The targeted domain.
    * @param cell_coords The input cell coordinates, which the function modifies
    *     to store the next coordinates at termination.
+   * @param coords_retrieved Will store true if the retrieved coordinates are
+   *     inside the domain, and false otherwise.
    * @return void
    */
   template<class T> 
-  void get_next_cell_coords_row(const T* domain, T* cell_coords) const;
+  void get_next_cell_coords_row(
+      const T* domain, 
+      T* cell_coords, 
+      bool& coords_retrieved) const;
 
   /**
    * Retrieves the next tile coordinates along the array tile order within a
