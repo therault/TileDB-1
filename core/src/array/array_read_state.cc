@@ -272,7 +272,7 @@ void ArrayReadState::compute_min_bounding_coords_end() {
 
 template<class T>
 int ArrayReadState::compute_unsorted_fragment_cell_ranges_dense(
-    FragmentCellRanges& unsorted_fragment_cell_ranges) {
+    std::vector<FragmentCellRanges>& unsorted_fragment_cell_ranges) {
   // Compute cell ranges for all fragments
   for(int i=0; i<fragment_num_; ++i) {
     if(!fragment_read_states_[i]->done()) {
@@ -284,30 +284,32 @@ int ArrayReadState::compute_unsorted_fragment_cell_ranges_dense(
             fragment_cell_ranges) != TILEDB_RS_OK)
           return TILEDB_ARS_ERR;
         // Insert fragment cell ranges to the result
-        unsorted_fragment_cell_ranges.insert(
-            unsorted_fragment_cell_ranges.end(),
-            fragment_cell_ranges.begin(),
-            fragment_cell_ranges.end());
+        unsorted_fragment_cell_ranges.push_back(fragment_cell_ranges);
       } else {                                    // SPARSE
         FragmentCellRanges fragment_cell_ranges;
+        FragmentCellRanges fragment_cell_ranges_tmp;
         do {
           // Get next overlapping tiles
           fragment_read_states_[i]->get_next_overlapping_tile_sparse<T>(
               static_cast<const T*>(subarray_tile_coords_));
           // Get fragment cell ranges
-          fragment_cell_ranges.clear();
+          fragment_cell_ranges_tmp.clear();
           if(fragment_read_states_[i]->get_fragment_cell_ranges_sparse<T>(
              i,
-             fragment_cell_ranges) != TILEDB_RS_OK)
+             fragment_cell_ranges_tmp) != TILEDB_RS_OK)
             return TILEDB_ARS_ERR;
-          // Insert fragment cell ranges to the result
-          unsorted_fragment_cell_ranges.insert(
-              unsorted_fragment_cell_ranges.end(),
-              fragment_cell_ranges.begin(),
-              fragment_cell_ranges.end()); 
+          // Insert fragment cell ranges to temporary ranges
+          fragment_cell_ranges.insert(
+              fragment_cell_ranges.end(),
+              fragment_cell_ranges_tmp.begin(),
+              fragment_cell_ranges_tmp.end());
         } while(!fragment_read_states_[i]->done() &&
-                fragment_read_states_[i]->mbr_overlaps_tile());
+                fragment_read_states_[i]->mbr_overlaps_tile()); 
+        unsorted_fragment_cell_ranges.push_back(fragment_cell_ranges);
       }
+    } else {
+      // Append an empty list
+      unsorted_fragment_cell_ranges.push_back(FragmentCellRanges());
     }
   }
 
@@ -317,7 +319,7 @@ int ArrayReadState::compute_unsorted_fragment_cell_ranges_dense(
 
 template<class T>
 int ArrayReadState::compute_unsorted_fragment_cell_ranges_sparse(
-    FragmentCellRanges& unsorted_fragment_cell_ranges) {
+    std::vector<FragmentCellRanges>& unsorted_fragment_cell_ranges) {
   // For easy reference
   const ArraySchema* array_schema = array_->array_schema();
   int dim_num = array_schema->dim_num();
@@ -341,10 +343,7 @@ int ArrayReadState::compute_unsorted_fragment_cell_ranges_sparse(
           fragment_cell_ranges) != TILEDB_RS_OK)
         return TILEDB_ARS_ERR;
 
-      unsorted_fragment_cell_ranges.insert(
-          unsorted_fragment_cell_ranges.end(),
-          fragment_cell_ranges.begin(),
-          fragment_cell_ranges.end());
+      unsorted_fragment_cell_ranges.push_back(fragment_cell_ranges);
 
       // If the end bounding coordinate is not the same as the smallest one, 
       // update the start bounding coordinate to exceed the smallest
@@ -365,6 +364,9 @@ int ArrayReadState::compute_unsorted_fragment_cell_ranges_sparse(
         // Sanity check for the sparse case
         assert(coords_retrieved);
       } 
+    } else {
+      // Append an empty list
+      unsorted_fragment_cell_ranges.push_back(FragmentCellRanges());
     }
   }
 
@@ -691,7 +693,7 @@ int ArrayReadState::get_next_fragment_cell_ranges_dense() {
     return TILEDB_ARS_OK;
 
   // Compute the unsorted fragment cell ranges needed for this read run
-  FragmentCellRanges unsorted_fragment_cell_ranges;
+  std::vector<FragmentCellRanges> unsorted_fragment_cell_ranges;
   if(compute_unsorted_fragment_cell_ranges_dense<T>(
          unsorted_fragment_cell_ranges) != TILEDB_ARS_OK)
     return TILEDB_ARS_ERR;
@@ -738,7 +740,7 @@ int ArrayReadState::get_next_fragment_cell_ranges_sparse() {
   compute_min_bounding_coords_end<T>(); 
 
   // Compute the unsorted fragment cell ranges needed for this read run
-  FragmentCellRanges unsorted_fragment_cell_ranges;
+  std::vector<FragmentCellRanges> unsorted_fragment_cell_ranges;
   if(compute_unsorted_fragment_cell_ranges_sparse<T>(
          unsorted_fragment_cell_ranges) != TILEDB_ARS_OK)
     return TILEDB_ARS_ERR;
@@ -1460,11 +1462,14 @@ int ArrayReadState::read_sparse_attr_var(
 
 template<class T>
 int ArrayReadState::sort_fragment_cell_ranges(
-    FragmentCellRanges& unsorted_fragment_cell_ranges,
+    std::vector<FragmentCellRanges>& unsorted_fragment_cell_ranges,
     FragmentCellRanges& fragment_cell_ranges) const {
+  // Sanity check
+  assert(fragment_num_ > 0);
+
   // Trivial case - single fragment
   if(fragment_num_ == 1) {
-    fragment_cell_ranges = unsorted_fragment_cell_ranges;
+    fragment_cell_ranges = unsorted_fragment_cell_ranges[0];
     unsorted_fragment_cell_ranges.clear();
     return TILEDB_ARS_OK;
   }
@@ -1488,20 +1493,30 @@ int ArrayReadState::sort_fragment_cell_ranges(
     } 
   }
 
+  // Initialization of book-keeping for unsorted ranges
+  int64_t* rlen = new int64_t[fragment_num_];
+  int64_t* rid = new int64_t[fragment_num_];
+  int fid = 0;
+  for(int i=0; i<fragment_num_; ++i) {
+    rlen[i] = unsorted_fragment_cell_ranges[i].size();
+    rid[i] = 0;
+  }
+
   // Populate queue
   std::priority_queue<
       PQFragmentCellRange<T>,
       std::vector<PQFragmentCellRange<T> >,
       SmallerPQFragmentCellRange<T> > pq(array_schema);
-  int unsorted_fragment_cell_ranges_num = unsorted_fragment_cell_ranges.size();
   PQFragmentCellRange<T> pq_fragment_cell_range(
       array_schema,
       &fragment_read_states_);
-  for(int64_t i=0; i<unsorted_fragment_cell_ranges_num; ++i) { 
-    pq_fragment_cell_range.import_from(unsorted_fragment_cell_ranges[i]);
-    pq.push(pq_fragment_cell_range);
+  for(int i=0; i<fragment_num_; ++i) { 
+    if(rlen[i] != 0) {
+      pq_fragment_cell_range.import_from(unsorted_fragment_cell_ranges[i][0]);
+      pq.push(pq_fragment_cell_range);
+      ++rid[i];
+    }
   }
-  unsorted_fragment_cell_ranges.clear();
   
   // Initializations
   PQFragmentCellRange<T> popped(array_schema, &fragment_read_states_);
@@ -1537,9 +1552,19 @@ int ArrayReadState::sort_fragment_cell_ranges(
           // Create the new trimmed top range
           popped.trim(top, trimmed_top, tile_domain);
 
-          // Re-insert the trimmed range in pq, or discard it
-          if(trimmed_top.cell_range_ != NULL) 
+          if(trimmed_top.cell_range_ != NULL) { 
+            // Re-insert the trimmed range in pq
             pq.push(trimmed_top);
+          } else {
+            // Get the next range from the top fragment
+            fid = top.fragment_id_;
+            if(rid[fid] != rlen[fid]) {
+              pq_fragment_cell_range.import_from(
+                  unsorted_fragment_cell_ranges[fid][rid[fid]]);
+              pq.push(pq_fragment_cell_range);
+              ++rid[fid];
+            }
+          }
         } 
 
         // Discard top and get a new one
@@ -1549,12 +1574,22 @@ int ArrayReadState::sort_fragment_cell_ranges(
       }
 
       // Potentially split the popped range
-      if(!pq.empty() && popped.must_be_split(top)) {
-        // Split the popped range
-        popped.split(top, extra_popped, tile_domain);
-        
-        // Re-instert the extra popped range into the queue
-        pq.push(extra_popped);
+      if(!pq.empty()) {
+        if(popped.must_be_split(top)) {
+          // Split the popped range
+          popped.split(top, extra_popped, tile_domain);
+          // Re-instert the extra popped range into the queue
+          pq.push(extra_popped);
+        } else {
+          // Get the next range from popped fragment
+          fid = popped.fragment_id_;
+          if(rid[fid] != rlen[fid]) {
+            pq_fragment_cell_range.import_from(
+                unsorted_fragment_cell_ranges[fid][rid[fid]]);
+            pq.push(pq_fragment_cell_range);
+            ++rid[fid];
+          }
+        }
       } 
      
       // Insert the final popped range into the results
@@ -1565,8 +1600,15 @@ int ArrayReadState::sort_fragment_cell_ranges(
       if(!pq.empty() && top.begins_after(popped)) {
         popped.export_to(result);
         fragment_cell_ranges.push_back(result);
+        // Get the next range from the popped fragment
+        fid = popped.fragment_id_;
+        if(rid[fid] != rlen[fid]) {
+          pq_fragment_cell_range.import_from(
+              unsorted_fragment_cell_ranges[fid][rid[fid]]);
+          pq.push(pq_fragment_cell_range);
+          ++rid[fid];
+        }
       } else {
-
         // Create up to 3 more ranges (left, unary, new popped/right)
         popped.split_to_3(top, left, unary);
 
@@ -1577,20 +1619,33 @@ int ArrayReadState::sort_fragment_cell_ranges(
         }
 
         // Insert unary to the priority queue 
-        if(unary.cell_range_ != NULL)  {
+        if(unary.cell_range_ != NULL) 
           pq.push(unary); 
- }
 
         // Re-insert new popped (right) range to the priority queue
         if(popped.cell_range_ != NULL) 
           pq.push(popped);
+
+        // Get the next range from the popped fragment
+        if(unary.cell_range_ == NULL && popped.cell_range_ == NULL) {
+          fid = popped.fragment_id_;
+          if(rid[fid] != rlen[fid]) {
+            pq_fragment_cell_range.import_from(
+                unsorted_fragment_cell_ranges[fid][rid[fid]]);
+            pq.push(pq_fragment_cell_range);
+            ++rid[fid];
+          }
+        }
       }
     }
   }
 
   // Clean up 
+  unsorted_fragment_cell_ranges.clear();
   if(tile_domain != NULL)
     delete [] tile_domain;
+  delete [] rlen;
+  delete [] rid;
 
   // Clean up in case of error
   if(rc != TILEDB_ARS_OK) {

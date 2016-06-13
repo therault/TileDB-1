@@ -239,6 +239,20 @@ class ArrayReadState {
 
   /**
    * Computes the relevant fragment cell ranges for the current read run, 
+   * focusing on the **dense* array case. These cell ranges will be properly
+   * cut and sorted later on. 
+   *
+   * @template T The coordinates type.
+   * @param unsorted_fragment_cell_ranges It will hold the result of this
+   *     function.
+   * @return TILEDB_ARS_OK on success and TILEDB_ARS_ERR on error.
+   */
+  template<class T>
+  int compute_unsorted_fragment_cell_ranges_dense(
+      std::vector<FragmentCellRanges>& unsorted_fragment_cell_ranges);
+
+  /**
+   * Computes the relevant fragment cell ranges for the current read run, 
    * focusing on the **sparse* array case. These cell ranges will be properly
    * cut and sorted later on. This function also properly updates the start
    * bounding coordinates of the active tiles (to exceed the minimum bounding
@@ -251,21 +265,7 @@ class ArrayReadState {
    */
   template<class T>
   int compute_unsorted_fragment_cell_ranges_sparse(
-      FragmentCellRanges& unsorted_fragment_cell_ranges);
-
-  /**
-   * Computes the relevant fragment cell ranges for the current read run, 
-   * focusing on the **dense* array case. These cell ranges will be properly
-   * cut and sorted later on. 
-   *
-   * @template T The coordinates type.
-   * @param unsorted_fragment_cell_ranges It will hold the result of this
-   *     function.
-   * @return TILEDB_ARS_OK on success and TILEDB_ARS_ERR on error.
-   */
-  template<class T>
-  int compute_unsorted_fragment_cell_ranges_dense(
-      FragmentCellRanges& unsorted_fragment_cell_ranges);
+      std::vector<FragmentCellRanges>& unsorted_fragment_cell_ranges);
 
   /**
    * Copies the cell ranges calculated in the current read round into the
@@ -589,7 +589,7 @@ class ArrayReadState {
    */
   template<class T>
   int sort_fragment_cell_ranges(
-      FragmentCellRanges& unsorted_fragment_cell_ranges,
+      std::vector<FragmentCellRanges>& unsorted_fragment_cell_ranges,
       FragmentCellRanges& fragment_cell_ranges) const;
 };
 
