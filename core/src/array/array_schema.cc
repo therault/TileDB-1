@@ -64,6 +64,12 @@
 
 
 /* ****************************** */
+/*   AUXILIARY STATIC VARIABLES   */
+/* ****************************** */
+
+static void* tile_coords_s = NULL;
+
+/* ****************************** */
 /*   CONSTRUCTORS & DESTRUCTORS   */
 /* ****************************** */
 
@@ -91,6 +97,9 @@ ArraySchema::~ArraySchema() {
 
   if(tile_domain_ != NULL)
     free(tile_domain_);
+
+  if(tile_coords_s != NULL)
+    free(tile_coords_s);
 }
 
 
@@ -912,6 +921,11 @@ int ArraySchema::deserialize(
   // Initialize the coordinates size
   coords_size_ = cell_sizes_[attribute_num_];
 
+  // Initialize static auxiliary variables
+  if(tile_coords_s != NULL)
+    free(tile_coords_s);
+  tile_coords_s = malloc(coords_size_*dim_num_);
+
   // Success
   return TILEDB_AS_OK;
 }
@@ -968,6 +982,11 @@ int ArraySchema::init(const ArraySchemaC* array_schema_c) {
 
   // Initialize the coordinates size
   coords_size_ = cell_sizes_[attribute_num_];
+
+  // Initialize static auxiliary variables
+  if(tile_coords_s != NULL)
+    free(tile_coords_s);
+  tile_coords_s = malloc(coords_size_*dim_num_);
 
   // Success
   return TILEDB_AS_OK;
@@ -1625,6 +1644,7 @@ int ArraySchema::tile_cell_order_cmp(
 }
 
 template<typename T>
+inline
 int64_t ArraySchema::tile_id(const T* cell_coords) const {
   // For easy reference
   const T* domain = static_cast<const T*>(domain_);
@@ -1635,14 +1655,11 @@ int64_t ArraySchema::tile_id(const T* cell_coords) const {
     return 0;
 
   // Calculate tile coordinates
-  T* tile_coords = new T[dim_num_];   
+  T* tile_coords = static_cast<T*>(tile_coords_s);
   for(int i=0; i<dim_num_; ++i)
     tile_coords[i] = (cell_coords[i] - domain[2*i]) / tile_extents[i]; 
 
   int tile_id = get_tile_pos(tile_coords);
-
-  // Clean up
-  delete [] tile_coords;
 
   // Return
   return tile_id;
