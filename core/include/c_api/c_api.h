@@ -55,9 +55,12 @@ extern "C" {
 
 /** Used to pass congiguration parameters to TileDB. */
 typedef struct TileDB_Config {
-  /** TileDB home directory. */
+  /** 
+   * The TileDB home directory. If it is set to "" (empty string) or NULL, the 
+   * default home directory will be used, which is ~/.tiledb/. 
+   */
   const char* home_;
-  /** The MPI communicator. */
+  /** The MPI communicator. Use NULL if no MPI is used. */
   MPI_Comm* mpi_comm_; 
   /** 
    * The method for reading data from a file. 
@@ -65,7 +68,7 @@ typedef struct TileDB_Config {
    *    - TILEDB_IO_MMAP
    *      TileDB will use mmap.
    *    - TILEDB_IO_READ
-   *      TileDB will use POSIX read.
+   *      TileDB will use standard OS read.
    *    - TILEDB_IO_MPI
    *      TileDB will use MPI-IO read. 
    */
@@ -74,7 +77,7 @@ typedef struct TileDB_Config {
    * The method for writing data to a file. 
    * It can be one of the following: 
    *    - TILEDB_IO_WRITE
-   *      TileDB will use POSIX write.
+   *      TileDB will use standard OS write.
    *    - TILEDB_IO_MPI
    *      TileDB will use MPI-IO write. 
    */

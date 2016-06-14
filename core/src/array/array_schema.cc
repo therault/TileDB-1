@@ -1839,8 +1839,8 @@ void ArraySchema::compute_tile_offsets() {
 
 template<class T>
 void ArraySchema::compute_tile_offsets() {
-  // Applicable only to dense arrays
-  if(!dense_)
+  // Applicable only to non-NULL space tiles
+  if(tile_extents_ == NULL)
     return;
 
   // For easy reference
