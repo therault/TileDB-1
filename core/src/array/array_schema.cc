@@ -278,6 +278,7 @@ int ArraySchema::compression(int attribute_id) const {
 }
 
 size_t ArraySchema::coords_size() const {
+  return coords_size_;
   return cell_sizes_[attribute_num_];
 }
 
@@ -908,6 +909,9 @@ int ArraySchema::deserialize(
   // Initialize Hilbert curve
   init_hilbert_curve();
 
+  // Initialize the coordinates size
+  coords_size_ = cell_sizes_[attribute_num_];
+
   // Success
   return TILEDB_AS_OK;
 }
@@ -961,6 +965,9 @@ int ArraySchema::init(const ArraySchemaC* array_schema_c) {
 
   // Initialize Hilbert curve
   init_hilbert_curve();
+
+  // Initialize the coordinates size
+  coords_size_ = cell_sizes_[attribute_num_];
 
   // Success
   return TILEDB_AS_OK;
@@ -2031,9 +2038,6 @@ void ArraySchema::get_next_tile_coords_row(
     tile_coords[i] = domain[2*i];
     ++tile_coords[--i];
   } 
-}
-
-void compute_tile_offsets() {
 }
 
 template<class T>

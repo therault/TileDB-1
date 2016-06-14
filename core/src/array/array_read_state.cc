@@ -1594,6 +1594,10 @@ int ArrayReadState::sort_fragment_cell_ranges(
           pq.pop();
         } 
 
+        // Break if the queue is empty
+        if(pq.empty())
+          break;
+
         // Get a new top
         top = pq.top();
       }

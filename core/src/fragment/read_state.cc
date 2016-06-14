@@ -1489,6 +1489,7 @@ int64_t ReadState::get_cell_pos_at_or_before(const T* coords) {
     return med;   // At
 }
 
+inline
 int ReadState::GET_COORDS_PTR_FROM_SEARCH_TILE(
     int64_t i,
     const void*& coords) {

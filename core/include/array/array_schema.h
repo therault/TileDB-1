@@ -630,6 +630,8 @@ class ArraySchema {
   std::vector<int> compression_;
   /** Auxiliary variable used when calculating Hilbert ids. */
   int* coords_for_hilbert_;
+  /** The size (in bytes) of the coordinates. */
+  size_t coords_size_;
   /** 
    * Specifies if the array is dense or sparse. If the array is dense, 
    * then the user must specify tile extents (see below).

@@ -83,6 +83,7 @@ bool both_slashes(char a, char b) {
 }
 
 template<class T>
+inline
 bool cell_in_subarray(const T* cell, const T* subarray, int dim_num) {
   for(int i=0; i<dim_num; ++i) {
     if(cell[i] < subarray[2*i] || cell[i] > subarray[2*i+1])
