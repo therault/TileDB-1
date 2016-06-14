@@ -1563,15 +1563,18 @@ int ArrayReadState::sort_fragment_cell_ranges(
               array_schema,
               &fragment_read_states_);
           popped->trim(top, trimmed_top, tile_domain);
+      
+          // Discard top
+          free(top->cell_range_);
+          delete top;
+          pq.pop();
 
           if(trimmed_top->cell_range_ != NULL) { 
             // Re-insert the trimmed range in pq
             pq.push(trimmed_top);
           } else {
-            // Clear trimmed top
-            delete trimmed_top;
             // Get the next range from the top fragment
-            fid = top->fragment_id_;
+            fid = trimmed_top->fragment_id_;
             if(rid[fid] != rlen[fid]) {
               pq_fragment_cell_range = new PQFragmentCellRange<T>( 
                   array_schema,
@@ -1581,13 +1584,17 @@ int ArrayReadState::sort_fragment_cell_ranges(
               pq.push(pq_fragment_cell_range);
               ++rid[fid];
             }
+            // Clear trimmed top
+            delete trimmed_top;
           }
+        } else {
+          // Discard top
+          free(top->cell_range_);
+          delete top;
+          pq.pop();
         } 
 
-        // Discard top and get a new one
-        free(top->cell_range_);
-        delete top;
-        pq.pop();
+        // Get a new top
         top = pq.top();
       }
 
