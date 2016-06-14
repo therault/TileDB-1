@@ -95,7 +95,7 @@ class ArrayReadState {
   typedef std::vector<FragmentCellPosRange> FragmentCellPosRanges;
 
   /** A vector of vectors of fragment cell position ranges. */
-  typedef std::vector<FragmentCellPosRanges> FragmentCellPosRangesVec;
+  typedef std::vector<FragmentCellPosRanges*> FragmentCellPosRangesVec;
 
   /**
    * A pair of fragment info and cell range, where the cell range is defined
@@ -619,10 +619,10 @@ class ArrayReadState::PQFragmentCellRange {
     * Returns true if the calling object begins after the end of the input
     * range. 
     */
-   bool begins_after(const PQFragmentCellRange& fcr) const;
+   bool begins_after(const PQFragmentCellRange* fcr) const;
 
    /** Returns true if the calling object ends after the input range. */
-   bool ends_after(const PQFragmentCellRange& fcr) const;
+   bool ends_after(const PQFragmentCellRange* fcr) const;
 
    /** Exports information to a fragment cell range. */
    void export_to(FragmentCellRange& fragment_cell_range);
@@ -634,12 +634,12 @@ class ArrayReadState::PQFragmentCellRange {
     * Returns true if the calling object range must be split by the input
     * range.
     */
-   bool must_be_split(const PQFragmentCellRange& fcr) const;
+   bool must_be_split(const PQFragmentCellRange* fcr) const;
 
    /**
     * Returns true if the input range must be trimmed by the callling object.
     */
-   bool must_trim(const PQFragmentCellRange& fcr) const;
+   bool must_trim(const PQFragmentCellRange* fcr) const;
 
    /**
     * Splits the calling object into two ranges based on the first input. The
@@ -648,8 +648,8 @@ class ArrayReadState::PQFragmentCellRange {
     * splitting. 
     */
    void split(
-       const PQFragmentCellRange& fcr, 
-       PQFragmentCellRange& fcr_new,
+       const PQFragmentCellRange* fcr, 
+       PQFragmentCellRange* fcr_new,
        const T* tile_domain);
 
    /**
@@ -662,9 +662,9 @@ class ArrayReadState::PQFragmentCellRange {
     *      start after the unary range. 
     */
    void split_to_3(
-       const PQFragmentCellRange& fcr, 
-       PQFragmentCellRange& fcr_left,
-       PQFragmentCellRange& fcr_unary);
+       const PQFragmentCellRange* fcr, 
+       PQFragmentCellRange* fcr_left,
+       PQFragmentCellRange* fcr_unary);
 
    /** 
     * Trims the first input range to the non-overlapping range stored in
@@ -673,8 +673,8 @@ class ArrayReadState::PQFragmentCellRange {
     * trimming.
     */
    void trim(
-       const PQFragmentCellRange& fcr,
-       PQFragmentCellRange& fcr_trimmed,
+       const PQFragmentCellRange* fcr,
+       PQFragmentCellRange* fcr_trimmed,
        const T* tile_domain) const;
 
    /** Returns true if the range is unary. */
@@ -720,8 +720,8 @@ class ArrayReadState::SmallerPQFragmentCellRange {
    * wins, then the smallest start range endpoint, then the largest fragment id.
    */
   bool operator () (
-      PQFragmentCellRange<T> a, 
-      PQFragmentCellRange<T> b) const;
+      PQFragmentCellRange<T>* a, 
+      PQFragmentCellRange<T>* b) const;
 
  private:
   /** The array schema. */
