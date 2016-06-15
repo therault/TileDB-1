@@ -171,6 +171,12 @@ class ArrayReadState {
   
   /** The array this array read state belongs to. */
   const Array* array_;
+  /** The array schema. */
+  const ArraySchema* array_schema_;
+  /** The number of array attributes. */
+  int attribute_num_;
+  /** The size of the array coordinates. */
+  size_t coords_size_;
   /** Indicates whether the read operation for this query is done. */
   bool done_;
   /** State per attribute indicating the number of empty cells written. */

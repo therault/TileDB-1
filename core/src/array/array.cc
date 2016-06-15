@@ -580,14 +580,27 @@ int Array::reset_subarray(const void* subarray) {
   // For easy referencd
   int fragment_num =  fragments_.size();
 
-  if(mode_ != TILEDB_ARRAY_READ) {  // WRITE MODE
+  // Finalize fragments if in write mode
+  if(mode_ != TILEDB_ARRAY_READ) {  
     // Finalize and delete fragments     
     for(int i=0; i<fragment_num; ++i) { 
       fragments_[i]->finalize();
       delete fragments_[i];
     }
     fragments_.clear();
+  } 
 
+  // Set subarray
+  size_t subarray_size = 2*array_schema_->coords_size();
+  if(subarray_ == NULL) 
+    subarray_ = malloc(subarray_size);
+  if(subarray == NULL) 
+    memcpy(subarray_, array_schema_->domain(), subarray_size);
+  else 
+    memcpy(subarray_, subarray, subarray_size);
+
+  // Re-set of re-initialize fragments
+  if(mode_ != TILEDB_ARRAY_READ) {  // WRITE MODE 
     // Get new fragment name
     std::string new_fragment_name = this->new_fragment_name();
     if(new_fragment_name == "")
@@ -598,19 +611,7 @@ int Array::reset_subarray(const void* subarray) {
     fragments_.push_back(fragment);
     if(fragment->init(new_fragment_name, mode_, subarray) != TILEDB_FG_OK) 
       return TILEDB_AR_ERR;
-
-    // Success
-    return TILEDB_AR_OK;
-  } else {
-    // Set subarray
-    size_t subarray_size = 2*array_schema_->coords_size();
-    if(subarray_ == NULL) 
-      subarray_ = malloc(subarray_size);
-    if(subarray == NULL) 
-      memcpy(subarray_, array_schema_->domain(), subarray_size);
-    else 
-      memcpy(subarray_, subarray, subarray_size);
-
+  } else if(mode_ == TILEDB_ARRAY_READ) {  // READ MODE
     // Re-initialize the read state of the fragments
     for(int i=0; i<fragment_num; ++i) 
       fragments_[i]->reset_read_state();
@@ -621,10 +622,10 @@ int Array::reset_subarray(const void* subarray) {
       array_read_state_ = NULL;
     }
     array_read_state_ = new ArrayReadState(this);
-
-    // Success
-    return TILEDB_AR_OK;
   }
+
+  // Success
+  return TILEDB_AR_OK;
 }
 
 int Array::write(const void** buffers, const size_t* buffer_sizes) {

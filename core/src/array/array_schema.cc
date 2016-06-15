@@ -1385,11 +1385,8 @@ int ArraySchema::set_types(const int* types) {
 
 template<class T>
 int ArraySchema::cell_order_cmp(const T* coords_a, const T* coords_b) const {
-  // For easy reference
-  size_t coords_size = cell_sizes_[attribute_num_];
-
   // Check if they are equal
-  if(memcmp(coords_a, coords_b, coords_size) == 0)
+  if(memcmp(coords_a, coords_b, coords_size_) == 0)
     return 0;
 
   // Check for precedence
