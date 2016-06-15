@@ -1078,7 +1078,7 @@ int ArrayReadState::read_dense_attr(
       buffer_size = buffer_offset;
       return TILEDB_ARS_OK;
     }
- 
+
     // Copy cells to buffers
     if(copy_cells<T>(
            attribute_id, 
@@ -1594,12 +1594,9 @@ int ArrayReadState::sort_fragment_cell_ranges(
           pq.pop();
         } 
 
-        // Break if the queue is empty
-        if(pq.empty())
-          break;
-
         // Get a new top
-        top = pq.top();
+        if(!pq.empty())
+          top = pq.top();
       }
 
       // Potentially split the popped range

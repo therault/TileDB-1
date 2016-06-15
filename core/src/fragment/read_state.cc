@@ -709,6 +709,7 @@ int ReadState::get_fragment_cell_ranges_sparse(
     const T* start_coords,
     const T* end_coords,
     FragmentCellRanges& fragment_cell_ranges) {
+
   // Sanity checks
   assert(search_tile_pos_ >= tile_search_range_[0] &&
          search_tile_pos_ <= tile_search_range_[1]);
@@ -1411,7 +1412,7 @@ int64_t ReadState::get_cell_pos_after(const T* coords) {
       max = med-1;
       continue;
     } else if(tile_id_coords > tile_id_coords_t) {
-      max = med+1;
+      min = med+1;
       continue;
     }
 
@@ -1467,7 +1468,7 @@ int64_t ReadState::get_cell_pos_at_or_after(const T* coords) {
       max = med-1;
       continue;
     } else if(tile_id_coords > tile_id_coords_t) {
-      max = med+1;
+      min = med+1;
       continue;
     }
 
@@ -1475,6 +1476,7 @@ int64_t ReadState::get_cell_pos_at_or_after(const T* coords) {
     cmp = array_schema->cell_order_cmp<T>(
               coords, 
               static_cast<const T*>(coords_t)); 
+
     if(cmp < 0) 
       max = med-1;
     else if(cmp > 0)  
@@ -1523,7 +1525,7 @@ int64_t ReadState::get_cell_pos_at_or_before(const T* coords) {
       max = med-1;
       continue;
     } else if(tile_id_coords > tile_id_coords_t) {
-      max = med+1;
+      min = med+1;
       continue;
     }
 
