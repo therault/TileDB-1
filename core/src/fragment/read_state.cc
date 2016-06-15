@@ -1384,6 +1384,7 @@ int64_t ReadState::get_cell_pos_after(const T* coords) {
   const ArraySchema* array_schema = fragment_->array()->array_schema();
   int attribute_num = array_schema->attribute_num();
   int64_t cell_num = book_keeping_->cell_num(fetched_tile_[attribute_num+1]);  
+  size_t coords_size = array_schema->coords_size();
 
   // Perform binary search to find the position of coords in the tile
   int64_t min = 0;
@@ -1391,13 +1392,31 @@ int64_t ReadState::get_cell_pos_after(const T* coords) {
   int64_t med;
   int cmp;
   const void* coords_t;
+  int64_t tile_id_coords = array_schema->tile_id(coords); 
+  int64_t tile_id_coords_t = -1;
   while(min <= max) {
     med = min + ((max - min) / 2);
 
     // Update search range
     if(GET_COORDS_PTR_FROM_SEARCH_TILE(med, coords_t) != TILEDB_RS_OK)
       return TILEDB_RS_ERR;
-    cmp = array_schema->tile_cell_order_cmp<T>(
+
+    // Check equality
+    if(!memcmp(coords, coords_t, coords_size))
+      break; 
+
+    // Check tile ids
+    tile_id_coords_t = array_schema->tile_id(static_cast<const T*>(coords_t)); 
+    if(tile_id_coords < tile_id_coords_t) {
+      max = med-1;
+      continue;
+    } else if(tile_id_coords > tile_id_coords_t) {
+      max = med+1;
+      continue;
+    }
+
+    // Not equal coordinates but same ids -> check cell order
+    cmp = array_schema->cell_order_cmp<T>(
               coords, 
               static_cast<const T*>(coords_t)); 
     if(cmp < 0) 
@@ -1405,7 +1424,7 @@ int64_t ReadState::get_cell_pos_after(const T* coords) {
     else if(cmp > 0)  
       min = med+1;
     else       
-      break; 
+      assert(0); // Equality is checked at the beginning 
   }
 
   // Return
@@ -1421,6 +1440,7 @@ int64_t ReadState::get_cell_pos_at_or_after(const T* coords) {
   const ArraySchema* array_schema = fragment_->array()->array_schema();
   int attribute_num = array_schema->attribute_num();
   int64_t cell_num = book_keeping_->cell_num(fetched_tile_[attribute_num+1]);  
+  size_t coords_size = array_schema->coords_size();
 
   // Perform binary search to find the position of coords in the tile
   int64_t min = 0;
@@ -1428,13 +1448,31 @@ int64_t ReadState::get_cell_pos_at_or_after(const T* coords) {
   int64_t med;
   int cmp;
   const void* coords_t;
+  int64_t tile_id_coords = array_schema->tile_id(coords); 
+  int64_t tile_id_coords_t = -1;
   while(min <= max) {
     med = min + ((max - min) / 2);
 
     // Update search range
     if(GET_COORDS_PTR_FROM_SEARCH_TILE(med, coords_t) != TILEDB_RS_OK)
       return TILEDB_RS_ERR;
-    cmp = array_schema->tile_cell_order_cmp<T>(
+
+    // Check equality
+    if(!memcmp(coords, coords_t, coords_size))
+      break; 
+
+    // Check tile ids
+    tile_id_coords_t = array_schema->tile_id(static_cast<const T*>(coords_t)); 
+    if(tile_id_coords < tile_id_coords_t) {
+      max = med-1;
+      continue;
+    } else if(tile_id_coords > tile_id_coords_t) {
+      max = med+1;
+      continue;
+    }
+
+    // Not equal coordinates but same ids -> check cell order
+    cmp = array_schema->cell_order_cmp<T>(
               coords, 
               static_cast<const T*>(coords_t)); 
     if(cmp < 0) 
@@ -1442,7 +1480,7 @@ int64_t ReadState::get_cell_pos_at_or_after(const T* coords) {
     else if(cmp > 0)  
       min = med+1;
     else       
-      break; 
+      assert(0); // Equality is checked at the beginning
   }
 
   // Return
@@ -1458,6 +1496,7 @@ int64_t ReadState::get_cell_pos_at_or_before(const T* coords) {
   const ArraySchema* array_schema = fragment_->array()->array_schema();
   int attribute_num = array_schema->attribute_num();
   int64_t cell_num = book_keeping_->cell_num(fetched_tile_[attribute_num+1]);  
+  size_t coords_size = array_schema->coords_size();
 
   // Perform binary search to find the position of coords in the tile
   int64_t min = 0;
@@ -1465,13 +1504,31 @@ int64_t ReadState::get_cell_pos_at_or_before(const T* coords) {
   int64_t med;
   int cmp;
   const void* coords_t;
+  int64_t tile_id_coords = array_schema->tile_id(coords); 
+  int64_t tile_id_coords_t = -1;
   while(min <= max) {
     med = min + ((max - min) / 2);
 
     // Update search range
     if(GET_COORDS_PTR_FROM_SEARCH_TILE(med, coords_t) != TILEDB_RS_OK)
       return TILEDB_RS_ERR;
-    cmp = array_schema->tile_cell_order_cmp<T>(
+
+    // Check equality
+    if(!memcmp(coords, coords_t, coords_size))
+      break; 
+
+    // Check tile ids
+    tile_id_coords_t = array_schema->tile_id(static_cast<const T*>(coords_t)); 
+    if(tile_id_coords < tile_id_coords_t) {
+      max = med-1;
+      continue;
+    } else if(tile_id_coords > tile_id_coords_t) {
+      max = med+1;
+      continue;
+    }
+
+    // Not equal coordinates but same ids -> check cell order
+    cmp = array_schema->cell_order_cmp<T>(
               coords, 
               static_cast<const T*>(coords_t)); 
     if(cmp < 0) 
@@ -1479,7 +1536,7 @@ int64_t ReadState::get_cell_pos_at_or_before(const T* coords) {
     else if(cmp > 0)  
       min = med+1;
     else       
-      break; 
+      assert(0); // Equality is checked at the beginning 
   }
 
   // Return

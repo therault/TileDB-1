@@ -64,12 +64,6 @@
 
 
 /* ****************************** */
-/*   AUXILIARY STATIC VARIABLES   */
-/* ****************************** */
-
-static void* tile_coords_s = NULL;
-
-/* ****************************** */
 /*   CONSTRUCTORS & DESTRUCTORS   */
 /* ****************************** */
 
@@ -80,6 +74,7 @@ ArraySchema::ArraySchema() {
   hilbert_curve_ = NULL;
   tile_extents_ = NULL;
   tile_domain_ = NULL;
+  tile_coords_aux_ = NULL;
 }
 
 ArraySchema::~ArraySchema() {
@@ -98,8 +93,8 @@ ArraySchema::~ArraySchema() {
   if(tile_domain_ != NULL)
     free(tile_domain_);
 
-  if(tile_coords_s != NULL)
-    free(tile_coords_s);
+  if(tile_coords_aux_ != NULL)
+    free(tile_coords_aux_);
 }
 
 
@@ -288,7 +283,6 @@ int ArraySchema::compression(int attribute_id) const {
 
 size_t ArraySchema::coords_size() const {
   return coords_size_;
-  return cell_sizes_[attribute_num_];
 }
 
 int ArraySchema::coords_type() const {
@@ -905,6 +899,8 @@ int ArraySchema::deserialize(
   cell_sizes_.resize(attribute_num_+1);
   for(int i=0; i<= attribute_num_; ++i) 
     cell_sizes_[i] = compute_cell_size(i);
+  // Set coordinates size
+  coords_size_ = cell_sizes_[attribute_num_];
 
   // Compute number of cells per tile
   compute_cell_num_per_tile();
@@ -918,13 +914,10 @@ int ArraySchema::deserialize(
   // Initialize Hilbert curve
   init_hilbert_curve();
 
-  // Initialize the coordinates size
-  coords_size_ = cell_sizes_[attribute_num_];
-
   // Initialize static auxiliary variables
-  if(tile_coords_s != NULL)
-    free(tile_coords_s);
-  tile_coords_s = malloc(coords_size_*dim_num_);
+  if(tile_coords_aux_ != NULL)
+    free(tile_coords_aux_);
+  tile_coords_aux_ = malloc(coords_size_*dim_num_);
 
   // Success
   return TILEDB_AS_OK;
@@ -980,13 +973,10 @@ int ArraySchema::init(const ArraySchemaC* array_schema_c) {
   // Initialize Hilbert curve
   init_hilbert_curve();
 
-  // Initialize the coordinates size
-  coords_size_ = cell_sizes_[attribute_num_];
-
   // Initialize static auxiliary variables
-  if(tile_coords_s != NULL)
-    free(tile_coords_s);
-  tile_coords_s = malloc(coords_size_*dim_num_);
+  if(tile_coords_aux_ != NULL)
+    free(tile_coords_aux_);
+  tile_coords_aux_ = malloc(coords_size_*dim_num_);
 
   // Success
   return TILEDB_AS_OK;
@@ -1380,6 +1370,9 @@ int ArraySchema::set_types(const int* types) {
   for(int i=0; i < attribute_num_+1; ++i) 
     cell_sizes_[i] = compute_cell_size(i);
 
+  // Set the coordinates size
+  coords_size_ = cell_sizes_[attribute_num_];
+
   return TILEDB_AS_OK;
 }
 
@@ -1655,7 +1648,7 @@ int64_t ArraySchema::tile_id(const T* cell_coords) const {
     return 0;
 
   // Calculate tile coordinates
-  T* tile_coords = static_cast<T*>(tile_coords_s);
+  T* tile_coords = static_cast<T*>(tile_coords_aux_);
   for(int i=0; i<dim_num_; ++i)
     tile_coords[i] = (cell_coords[i] - domain[2*i]) / tile_extents[i]; 
 

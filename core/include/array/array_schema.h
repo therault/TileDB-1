@@ -585,6 +585,16 @@ class ArraySchema {
 
 
 
+  /* ********************************* */
+  /*        AUXILIARY ATTRIBUTES       */
+  /* ********************************* */
+
+  /** 
+   * Auxiliary attribute used in the computation of tile ids, in order to avoid
+   * repeated allocations and deallocations that impact performance.
+   */
+  void* tile_coords_aux_;
+
  private:
   /* ********************************* */
   /*         PRIVATE ATTRIBUTES        */
