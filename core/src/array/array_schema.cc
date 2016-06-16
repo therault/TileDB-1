@@ -1618,18 +1618,12 @@ template<class T>
 int ArraySchema::tile_cell_order_cmp(
     const T* coords_a, 
     const T* coords_b) const {
-  // If there are regular tiles, first check tile ids
-  if(tile_extents_ != NULL) {
-    int64_t tile_id_a = tile_id(coords_a);
-    int64_t tile_id_b = tile_id(coords_b);
+  // Check tile order
+  int tile_cmp = tile_order_cmp(coords_a, coords_b);
+  if(tile_cmp)
+    return tile_cmp;
 
-    if(tile_id_a < tile_id_b)
-      return -1;
-    else if(tile_id_a > tile_id_b)
-      return 1;
-  }
-
-  // Tile ids are non-existent or equal --> check coordinates
+  // Check cell order
   return cell_order_cmp(coords_a, coords_b);
 }
 
@@ -1653,6 +1647,68 @@ int64_t ArraySchema::tile_id(const T* cell_coords) const {
 
   // Return
   return tile_id;
+}
+
+template<class T>
+int ArraySchema::tile_order_cmp(
+    const T* coords_a, 
+    const T* coords_b) const {
+  // For easy reference
+  T diff; 
+  T norm;
+  const T* domain = static_cast<const T*>(domain_);
+  const T* tile_extents = static_cast<const T*>(tile_extents_);
+
+  // If there are regular tiles, first check tile order
+  if(tile_extents_ != NULL) {
+    // ROW-MAJOR
+    if(tile_order_ == TILEDB_ROW_MAJOR) {
+      // Check if the cells are definitely IN the same tile
+      for(int i=0; i<dim_num_; ++i) {
+        diff = coords_a[i] - coords_b[i];
+
+        if(diff < 0)
+          norm = 
+              coords_a[i] -  
+              floor((coords_a[i] - domain[2*i]) / tile_extents[i]) * 
+              tile_extents[i];
+        else if(diff > 0) 
+          norm = 
+              coords_b[i] - 
+              floor((coords_b[i] - domain[2*i]) / tile_extents[i]) * 
+              tile_extents[i];
+
+        if(diff < 0 && (norm - diff) >= tile_extents[i])
+          return -1;
+        else if(diff > 0 && (norm + diff) >= tile_extents[i]) 
+          return 1;
+      }
+    } else { // COLUMN-MAJOR
+      // Check if the cells are definitely IN the same tile
+      for(int i=dim_num_-1; i>=0; --i) {
+        diff = coords_a[i] - coords_b[i];
+
+        if(diff < 0)
+          norm = 
+              coords_a[i] -  
+              floor((coords_a[i] - domain[2*i]) / tile_extents[i]) * 
+              tile_extents[i];
+        else if(diff > 0) 
+          norm = 
+              coords_b[i] - 
+              floor((coords_b[i] - domain[2*i]) / tile_extents[i]) * 
+              tile_extents[i];
+
+        if(diff < 0 && (norm - diff) >= tile_extents[i])
+          return -1;
+        else if(diff > 0 && (norm + diff) >= tile_extents[i]) 
+          return 1;
+      }
+    }
+  }
+
+  // Same tile order
+  return 0;
 }
 
 

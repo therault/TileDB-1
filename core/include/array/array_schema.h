@@ -582,6 +582,19 @@ class ArraySchema {
   template<class T>
   int64_t tile_id(const T* cell_coords) const;
 
+  /**
+   * Checks the tile order of the input coordinates.  
+   *
+   * @template T The coordinates type.
+   * @param coords_a The first input coordinates.
+   * @param coords_b The second input coordinates.
+   * @return One of the following:
+   *    - -1 if the first coordinates precede the second on the tile order
+   *    -  0 if the two coordinates have the same tile order
+   *    - +1 if the first coordinates succeed the second on the tile order
+   */
+  template<class T>
+  int tile_order_cmp(const T* coords_a, const T* coords_b) const;
 
 
 
