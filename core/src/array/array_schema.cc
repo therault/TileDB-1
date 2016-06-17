@@ -1667,13 +1667,10 @@ int ArraySchema::tile_order_cmp(
       for(int i=0; i<dim_num_; ++i) {
         diff = coords_a[i] - coords_b[i];
 
-        if(diff < 0) {
-          norm = (coords_a[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        } else if(diff > 0) {
-          norm = (coords_b[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        }
+        if(diff < 0)
+          norm = (coords_a[i] - domain[2*i]) % tile_extents[i];
+        else if(diff > 0)
+          norm = (coords_b[i] - domain[2*i]) % tile_extents[i];
 
         if(diff < 0 && (norm - diff) >= tile_extents[i])
           return -1;
@@ -1685,13 +1682,10 @@ int ArraySchema::tile_order_cmp(
       for(int i=dim_num_-1; i>=0; --i) {
         diff = coords_a[i] - coords_b[i];
 
-        if(diff < 0) {
-          norm = (coords_a[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        } else if(diff > 0) {
-          norm = (coords_b[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        }
+        if(diff < 0)
+          norm = (coords_a[i] - domain[2*i]) % tile_extents[i];
+        else if(diff > 0)
+          norm = (coords_b[i] - domain[2*i]) % tile_extents[i];
 
         if(diff < 0 && (norm - diff) >= tile_extents[i])
           return -1;
@@ -1728,14 +1722,11 @@ int ArraySchema::tile_order_cmp(
       // Check if the cells are definitely IN the same tile
       for(int i=0; i<dim_num_; ++i) {
         diff = coords_a[i] - coords_b[i];
-
-        if(diff < 0) {
-          norm = (coords_a[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        } else if(diff > 0) {
-          norm = (coords_b[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        }
+       
+        if(diff < 0)
+          norm = (coords_a[i] - domain[2*i]) % tile_extents[i];
+        else if(diff > 0)
+          norm = (coords_b[i] - domain[2*i]) % tile_extents[i];
 
         if(diff < 0 && (norm - diff) >= tile_extents[i])
           return -1;
@@ -1747,13 +1738,10 @@ int ArraySchema::tile_order_cmp(
       for(int i=dim_num_-1; i>=0; --i) {
         diff = coords_a[i] - coords_b[i];
 
-        if(diff < 0) {
-          norm = (coords_a[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        } else if(diff > 0) {
-          norm = (coords_b[i] - domain[2*i]);
-          norm -=  norm / tile_extents[i] * tile_extents[i];
-        }
+        if(diff < 0)
+          norm = (coords_a[i] - domain[2*i]) % tile_extents[i];
+        else if(diff > 0)
+          norm = (coords_b[i] - domain[2*i]) % tile_extents[i];
 
         if(diff < 0 && (norm - diff) >= tile_extents[i])
           return -1;
