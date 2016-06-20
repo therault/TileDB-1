@@ -3,6 +3,11 @@
 # **************** # 
 
 OS := $(shell uname)
+ifneq ($(shell gcc -v 2>&1 | grep -c "clang"),0)
+  COMPILER := clang
+else
+  COMPILER := gcc
+endif
 
 # --- Configuration flags --- #
 CPPFLAGS = -std=gnu++11 -fPIC -fvisibility=hidden \
@@ -13,13 +18,11 @@ ifdef TRAVIS
   CPPFLAGS += --coverage
 endif
 
-# --- Parallel sort --- #
-GNU_PARALLEL =
-ifeq ($(GNU_PARALLEL),)
-  GNU_PARALLEL = 1
-endif
-ifeq ($(GNU_PARALLEL),1)
-  CPPFLAGS += -DGNU_PARALLEL
+# --- Support for OpenMP --- #
+OPENMP_FLAG =
+ifeq ($(COMPILER), gcc)
+  CPPFLAGS += -DOPENMP
+  OPENMP_FLAG = -fopenmp
 endif
 
 # --- Debug/Release mode handler --- #
@@ -33,7 +36,7 @@ ifeq ($(BUILD),release)
 endif
 
 ifeq ($(BUILD),debug)
-  CPPFLAGS += -DDEBUG -gdwarf-3 -g3 -Wall
+  CPPFLAGS += -DDEBUG -gdwarf-3 -g3 -Wall 
 endif
 
 # --- Verbose mode handler --- #
@@ -171,7 +174,7 @@ $(CORE_OBJ_DIR)/%.o: $(CORE_SRC_DIR)/%.cc
 	@mkdir -p $(dir $@) 
 	@echo "Compiling $<"
 	@$(CXX) $(CPPFLAGS) $(INCLUDE_PATHS) $(CORE_INCLUDE_PATHS) -c $< -o $@ 
-	@$(CXX) -MM $(CORE_INCLUDE_PATHS) $< > $(@:.o=.d)
+	@$(CXX) -MM $(CORE_INCLUDE_PATHS) $(INCLUDE_PATHS) $< > $(@:.o=.d)
 	@mv -f $(@:.o=.d) $(@:.o=.d.tmp)
 	@sed 's|.*:|$@:|' < $(@:.o=.d.tmp) > $(@:.o=.d)
 	@rm -f $(@:.o=.d.tmp)
@@ -207,7 +210,7 @@ $(CORE_LIB_DIR)/libtiledb.$(SHLIB_EXT): $(CORE_OBJ)
 	@mkdir -p $(CORE_LIB_DIR)
 	@echo "Creating dynamic library libtiledb.$(SHLIB_EXT)"
 	@$(CXX) $(SHLIB_FLAGS) $(SONAME) -o $@ $^ $(LIBRARY_PATHS) $(MPILIB) \
-		$(ZLIB) $(OPENSSLLIB) -fopenmp 
+		$(ZLIB) $(OPENSSLLIB) $(OPENMP_FLAG)
 
 $(CORE_LIB_DIR)/libtiledb.a: $(CORE_OBJ)
 	@mkdir -p $(CORE_LIB_DIR)
@@ -231,11 +234,11 @@ clean_libtiledb:
 $(EXAMPLES_OBJ_DIR)/%.o: $(EXAMPLES_SRC_DIR)/%.cc
 	@mkdir -p $(EXAMPLES_OBJ_DIR)
 	@echo "Compiling $<"
-	@$(CXX) $(CPPFLAGS) -fopenmp $(INCLUDE_PATHS) \
+	@$(CXX) $(CPPFLAGS) $(OPENMP_FLAG) $(INCLUDE_PATHS) \
                 $(EXAMPLES_INCLUDE_PATHS) \
 		$(CORE_INCLUDE_PATHS) -c $< -o $@
 	@$(CXX) -MM $(EXAMPLES_INCLUDE_PATHS) \
-                    $(CORE_INCLUDE_PATHS) $< > $(@:.o=.d)
+                    $(CORE_INCLUDE_PATHS) $(INCLUDE_PATHS) $< > $(@:.o=.d)
 	@mv -f $(@:.o=.d) $(@:.o=.d.tmp)
 	@sed 's|.*:|$@:|' < $(@:.o=.d.tmp) > $(@:.o=.d)
 	@rm -f $(@:.o=.d.tmp)
@@ -246,7 +249,7 @@ $(EXAMPLES_BIN_DIR)/%: $(EXAMPLES_OBJ_DIR)/%.o $(CORE_LIB_DIR)/libtiledb.a
 	@mkdir -p $(EXAMPLES_BIN_DIR)
 	@echo "Creating $@"
 	@$(CXX) -std=gnu++11 -o $@ $^ $(LIBRARY_PATHS) $(MPILIB) $(ZLIB) \
-		 $(OPENSSLLIB) -fopenmp 
+		 $(OPENSSLLIB) $(OPENMP_FLAG) 
 
 # --- Cleaning --- #
 
@@ -266,9 +269,10 @@ clean_examples:
 $(TEST_OBJ_DIR)/%.o: $(TEST_SRC_DIR)/%.cc
 	@mkdir -p $(dir $@) 
 	@echo "Compiling $<"
-	@$(CXX) $(CPPFLAGS) -fopenmp $(TEST_INCLUDE_PATHS) -c $< -o $@
+	@$(CXX) $(CPPFLAGS) $(OPENMP_FLAG) $(TEST_INCLUDE_PATHS) \
+		$(INCLUDE_PATHS) -c $< -o $@
 	@$(CXX) -MM $(TEST_INCLUDE_PATHS) \
-                    $(CORE_INCLUDE_PATHS) $< > $(@:.o=.d)
+                $(CORE_INCLUDE_PATHS) $(INCLUDE_PATHS) $< > $(@:.o=.d)
 	@mv -f $(@:.o=.d) $(@:.o=.d.tmp)
 	@sed 's|.*:|$@:|' < $(@:.o=.d.tmp) > $(@:.o=.d)
 	@rm -f $(@:.o=.d.tmp)
@@ -279,7 +283,7 @@ $(TEST_BIN_DIR)/tiledb_test: $(TEST_OBJ) $(CORE_LIB_DIR)/libtiledb.a
 	@mkdir -p $(TEST_BIN_DIR)
 	@echo "Creating test_cmd"
 	@$(CXX) -std=gnu++11 -o $@ $^ $(LIBRARY_PATHS) $(MPILIB) $(ZLIB) \
-		$(OPENSSLLIB) $(GTESTLIB) -fopenmp 
+		$(OPENSSLLIB) $(GTESTLIB) $(OPENMP_FLAG) 
 
 # --- Cleaning --- #
 

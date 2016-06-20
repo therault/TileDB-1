@@ -33,6 +33,7 @@
 #ifndef __READ_STATE_H__
 #define __READ_STATE_H__
 
+#include "array.h"
 #include "book_keeping.h"
 #include "fragment.h"
 #include <vector>
@@ -54,6 +55,7 @@
 
 
 
+class Array;
 class Fragment;
 
 /** Stores the state necessary when reading cells from a fragment. */
@@ -363,14 +365,23 @@ class ReadState {
   /*         PRIVATE ATTRIBUTES        */
   /* ********************************* */
 
+  /** The array the fragment belongs to. */
+  const Array* array_;
+  /** The array schema. */
+  const ArraySchema* array_schema_;
+  /** The number of array attributes. */
+  int attribute_num_;
   /** The book-keeping of the fragment the read state belongs to. */
   BookKeeping* book_keeping_;
+  /** The size of the array coordinates. */
+  size_t coords_size_;
   /** Indicates if the read operation on this fragment finished. */
   bool done_;
   /** Keeps track of which tile is in main memory for each attribute. */ 
   std::vector<int64_t> fetched_tile_;
   /** The fragment the read state belongs to. */
   const Fragment* fragment_;
+  std::vector<bool> is_empty_attribute_;
   /** 
    * Last investigated tile coordinates. Applicable only to **sparse** fragments
    * for **dense** arrays.
@@ -678,20 +689,6 @@ class ReadState {
       size_t tile_size);
 
   /** 
-   * Reads a tile from the disk for an attribute into a local buffer, using 
-   * MPI-IO. This function focuses on the case of no compression.
-   *
-   * @param attribute_id The id of the attribute the read occurs for.
-   * @param offset The offset at which the tile starts in the file.
-   * @param tile_size The tile size. 
-   * @return TILEDB_RS_OK for success, and TILEDB_RS_ERR for error.
-   */
-  int mpi_io_read_tile_from_file_cmp_none(
-      int attribute_id,
-      off_t offset,
-      size_t tile_size);
-
-  /** 
    * Reads a variable-sized tile from the disk for an attribute into a local 
    * buffer, using MPI-IO. This function focuses on the case of GZIP
    * compression.
@@ -808,20 +805,6 @@ class ReadState {
    * @return TILEDB_RS_OK for success, and TILEDB_RS_ERR for error.
    */
   int read_tile_from_file_cmp_gzip(
-      int attribute_id,
-      off_t offset,
-      size_t tile_size);
-
-  /** 
-   * Reads a tile from the disk for an attribute into a local buffer. This
-   * function focuses on the case of no compression. 
-   *
-   * @param attribute_id The id of the attribute the read occurs for.
-   * @param offset The offset at which the tile starts in the file.
-   * @param tile_size The tile size. 
-   * @return TILEDB_RS_OK for success, and TILEDB_RS_ERR for error.
-   */
-  int read_tile_from_file_cmp_none(
       int attribute_id,
       off_t offset,
       size_t tile_size);

@@ -59,7 +59,7 @@
 #  define PRINT_WARNING(x) do { } while(0) 
 #endif
 
-#ifdef GNU_PARALLEL
+#ifdef OPENMP
   #include <parallel/algorithm>
   #define SORT_LIB __gnu_parallel
 #else
@@ -112,7 +112,9 @@ int StorageManager::init(Config* config) {
   if(!is_dir(tiledb_home_)) { 
     if(create_dir(tiledb_home_) != TILEDB_UT_OK)
       return TILEDB_SM_ERR;
+  }
 
+  if(!is_metadata(master_catalog_dir_)) {
     if(master_catalog_create() != TILEDB_SM_OK)
       return TILEDB_SM_ERR;
   }
@@ -502,7 +504,7 @@ int StorageManager::array_init(
     return TILEDB_SM_ERR;
 
   // Open the array
-  OpenArray* open_array;
+  OpenArray* open_array = NULL;
   if(mode == TILEDB_ARRAY_READ) {
     if(array_open(real_dir(array_dir), open_array) != TILEDB_SM_OK)
       return TILEDB_SM_ERR;
@@ -839,7 +841,7 @@ int StorageManager::metadata_init(
     return TILEDB_SM_ERR;
 
   // Open the array that implements the metadata
-  OpenArray* open_array;
+  OpenArray* open_array = NULL;
   if(mode == TILEDB_METADATA_READ) {
     if(array_open(real_dir(metadata_dir), open_array) != TILEDB_SM_OK)
       return TILEDB_SM_ERR;
@@ -1376,6 +1378,9 @@ int StorageManager::config_set(Config* config) {
     tiledb_home_ += "/.tiledb";
   }
 
+  // Get read path
+  tiledb_home_ = real_dir(tiledb_home_);
+
   // Success
   return TILEDB_SM_OK;
 } 
@@ -1831,7 +1836,11 @@ int StorageManager::metadata_move(
 }
 
 int StorageManager::open_array_mtx_destroy() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_destroy(&open_array_omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx = ::mutex_destroy(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1841,7 +1850,11 @@ int StorageManager::open_array_mtx_destroy() {
 }
 
 int StorageManager::open_array_mtx_init() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_init(&open_array_omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx = ::mutex_init(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1851,7 +1864,11 @@ int StorageManager::open_array_mtx_init() {
 }
 
 int StorageManager::open_array_mtx_lock() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_lock(&open_array_omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx = ::mutex_lock(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -1861,7 +1878,11 @@ int StorageManager::open_array_mtx_lock() {
 }
 
 int StorageManager::open_array_mtx_unlock() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_unlock(&open_array_omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx = ::mutex_unlock(&open_array_pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -2073,7 +2094,11 @@ int StorageManager::workspace_move(
 }
 
 int StorageManager::OpenArray::mutex_destroy() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_destroy(&omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx = ::mutex_destroy(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -2083,7 +2108,11 @@ int StorageManager::OpenArray::mutex_destroy() {
 }
 
 int StorageManager::OpenArray::mutex_init() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_init(&omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx =  ::mutex_init(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -2093,7 +2122,11 @@ int StorageManager::OpenArray::mutex_init() {
 }
 
 int StorageManager::OpenArray::mutex_lock() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_lock(&omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx = ::mutex_lock(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)
@@ -2103,7 +2136,11 @@ int StorageManager::OpenArray::mutex_lock() {
 }
 
 int StorageManager::OpenArray::mutex_unlock() {
+#ifdef OPENMP
   int rc_omp_mtx = ::mutex_unlock(&omp_mtx_);
+#else
+  int rc_omp_mtx = TILEDB_UT_OK;
+#endif
   int rc_pthread_mtx = ::mutex_unlock(&pthread_mtx_);
 
   if(rc_pthread_mtx != TILEDB_UT_OK || rc_omp_mtx != TILEDB_UT_OK)

@@ -36,7 +36,6 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
-#include <omp.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -578,11 +577,18 @@ int Array::reset_attributes(
 }
 
 int Array::reset_subarray(const void* subarray) {
-  // Sanity check on mode
-  if(mode_ != TILEDB_ARRAY_READ) {
-    PRINT_ERROR("Cannot reset subarray; Invalid array mode");
-    return TILEDB_AR_ERR;
-  }
+  // For easy referencd
+  int fragment_num =  fragments_.size();
+
+  // Finalize fragments if in write mode
+  if(mode_ != TILEDB_ARRAY_READ) {  
+    // Finalize and delete fragments     
+    for(int i=0; i<fragment_num; ++i) { 
+      fragments_[i]->finalize();
+      delete fragments_[i];
+    }
+    fragments_.clear();
+  } 
 
   // Set subarray
   size_t subarray_size = 2*array_schema_->coords_size();
@@ -593,17 +599,30 @@ int Array::reset_subarray(const void* subarray) {
   else 
     memcpy(subarray_, subarray, subarray_size);
 
-  // Re-initialize the read state of the fragments
-  int fragment_num =  fragments_.size();
-  for(int i=0; i<fragment_num; ++i) 
-    fragments_[i]->reset_read_state();
+  // Re-set of re-initialize fragments
+  if(mode_ != TILEDB_ARRAY_READ) {  // WRITE MODE 
+    // Get new fragment name
+    std::string new_fragment_name = this->new_fragment_name();
+    if(new_fragment_name == "")
+      return TILEDB_AS_ERR;
 
-  // Re-initialize array read state
-  if(array_read_state_ != NULL) {
-    delete array_read_state_;
-    array_read_state_ = NULL;
+    // Create new fragment
+    Fragment* fragment = new Fragment(this);
+    fragments_.push_back(fragment);
+    if(fragment->init(new_fragment_name, mode_, subarray) != TILEDB_FG_OK) 
+      return TILEDB_AR_ERR;
+  } else if(mode_ == TILEDB_ARRAY_READ) {  // READ MODE
+    // Re-initialize the read state of the fragments
+    for(int i=0; i<fragment_num; ++i) 
+      fragments_[i]->reset_read_state();
+
+    // Re-initialize array read state
+    if(array_read_state_ != NULL) {
+      delete array_read_state_;
+      array_read_state_ = NULL;
+    }
+    array_read_state_ = new ArrayReadState(this);
   }
-  array_read_state_ = new ArrayReadState(this);
 
   // Success
   return TILEDB_AR_OK;
@@ -671,15 +690,20 @@ void Array::aio_handle_next_request(AIO_Request* aio_request) {
   }
 
   if(rc == TILEDB_AR_OK) {      // Success
-    // Invoke the callback
-    if(aio_request->completion_handle_ != NULL)
-      (*(aio_request->completion_handle_))(aio_request->completion_data_);
-
     // Check for overflow
-    if(overflow())
+    if(overflow()) {
       *aio_request->status_= TILEDB_AIO_OVERFLOW;
-    else
+      if(aio_request->overflow_ != NULL) {
+        for(int i=0; i<int(attribute_ids_.size()); ++i) 
+          aio_request->overflow_[i] = overflow(attribute_ids_[i]);
+      }
+    } else { // Completion
       *aio_request->status_= TILEDB_AIO_COMPLETED;
+
+      // Invoke the callback
+      if(aio_request->completion_handle_ != NULL)
+        (*(aio_request->completion_handle_))(aio_request->completion_data_);
+    }
   } else {                      // Error
     *aio_request->status_= TILEDB_AIO_ERR;
   }
