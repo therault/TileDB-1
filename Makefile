@@ -49,7 +49,7 @@ ifneq ($(VERBOSE),0)
 endif
 
 # --- Compilers --- #
-CXX = g++   
+CXX = mpicxx   
 
 # --- Directories --- #
 CORE_INCLUDE_DIR = core/include
@@ -286,7 +286,6 @@ $(TEST_BIN_DIR)/tiledb_test: $(TEST_OBJ) $(CORE_LIB_DIR)/libtiledb.a
 clean_test:
 	@echo "Cleaning test"
 	@rm -rf $(TEST_OBJ_DIR) $(TEST_BIN_DIR)
-	
 
 # **************** # 
 #   Documentation  #
